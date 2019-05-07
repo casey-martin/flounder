@@ -8,10 +8,13 @@ External python libraries used:
 python-chess,
 scikit-learn,
 numpy,
-tensorflow,
+tensorflow
 
 Chess analysis engine:
 Stockfish (https://stockfishchess.org/)
+
+Parallelism Tools:
+GNU-parallel (https://www.gnu.org/software/parallel/)
 
 TODO:
 Chess 960 compatibility,
