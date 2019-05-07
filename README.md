@@ -5,10 +5,10 @@ Lumpi is a multilayer perceptron (MLP) based chess evaluation tool. A neural net
 conventional chess engine. Given a particular board state, the model predicts the corresponding centipawn value.
 
 External python libraries used:
-python-chess
-scikit-learn
-numpy
-tensorflow
+python-chess\n
+scikit-learn\n
+numpy\n
+tensorflow\n
 
 Chess analysis engine:
 Stockfish (https://stockfishchess.org/)
