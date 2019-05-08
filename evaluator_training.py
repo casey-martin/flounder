@@ -6,7 +6,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from tensorflow import keras
 from tensorflow.python.keras import layers
-import argparser
+import argparse
 import numpy as np
 import os
 import pandas as pd
