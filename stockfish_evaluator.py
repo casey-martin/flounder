@@ -132,26 +132,27 @@ def scorePgnChunk(pgn, myengine, limit, job, nprocs, outdir, verbose=True):
             else:
                 for i in range(numGames):
                     mygame = chess.pgn.read_game(myPgnShard)
-                    boardState, evalScore = analyzeGame(mygame, myengine, limit)
-                    boardState = boardState + [evalScore]
-                    outfile.write(','.join(boardState))
+                    boardStates = analyzeGame(mygame, myengine, limit)
+                    
+                    for state in boardStates:
+                        outfile.write(','.join(map(str,state)) + '\n')
 
     print('\nJob:', job, 'complete.')
  
 parser = argparse.ArgumentParser()
 parser.add_argument('--pgn', type=str, help='input pgn file to split.')
 parser.add_argument('--outdir', type=str, help='Directory to which the file will be written.')
-parser.add_argument('--job', type=int, help='Directory to which the file will be written.')
-parser.add_argument('--nprocs', type=int, help='Directory to which the file will be written.')
+parser.add_argument('--job', type=int, help='Job ID given as integer.')
+parser.add_argument('--nprocs', type=int, help='Total number of jobs.')
 parser.add_argument('--verbose', type=bool, default=True,
-                    help='Show job status and estimated time to completioni.')
+                    help='Show job status and estimated time to completion.')
 parser.add_argument('--timelimit', type=float, default=0.1, help='Wall time for move analysis.')
-
+parser.add_argument('--engine', type=str, default='/usr/bin/stockfish/', help='Path to engine.')
 args = parser.parse_args()
 
 def main():
     # set up engine parameters. 
-    myengine = chess.engine.SimpleEngine.popen_uci("/usr/bin/stockfish")
+    myengine = chess.engine.SimpleEngine.popen_uci(args.engine)
     limit = chess.engine.Limit(time=args.timelimit)
 
 
