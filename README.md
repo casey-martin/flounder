@@ -1,7 +1,7 @@
 # lumpi
-## MLP Chess Engine
+## ANN Chess Engine
 
-Lumpi is a multilayer perceptron (MLP) based chess evaluation tool. A neural net is trained on positions scored by a
+Lumpi is an artificial neural network (ANN) based chess evaluation tool. A neural net is trained on positions scored by a
 conventional chess engine. Given a particular board state, the model predicts the corresponding centipawn value.
 
 External python libraries used:
@@ -20,8 +20,9 @@ GNU-parallel (https://www.gnu.org/software/parallel/)
 ### High Priority:
 ![Distribution of Stockfish evaluations from games between master-level players.](https://github.com/casey-martin/lumpi/blob/master/figures/stockfish_eval_dist.png)
 
-* Subsample training data. 
-  * Over the course of a game between two master-level players, the vast majority of chess positions will have roughly an even board position. Training on this full dataset results in the network minimizing error by randomly guessing values around 0. Reducing the relative proportion of roughly equal positions should help mitigate this effect. However, this means we must throw out a majority of the training data for network initialization.
+* Downsample training data. 
+  * Over the course of a game between two master-level players, the vast majority of chess positions will have roughly an even board position. Training on this full dataset results in the network minimizing error by randomly guessing values around 0. Reducing the relative proportion of roughly equal positions mitigates this effect. However, this means we must throw out a majority of the training data for network initialization. 
+  * Preliminary tests on downsampled training data have been successful. 
 
 ### Long Term:
 * Chess 960 compatibility.
