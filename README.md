@@ -29,5 +29,5 @@ Subsample training data. Over the course of a game between two master-level play
   * Current plan is a greedy policy: choose the highest evaluated move a half ply deep. 
   * Beta-pruning and MCTS implementation? Python performance will be a limiting factor. Cython implementation of python-chess?
 * Amplification reinforcement
-  * Train the evaluation function to approximate the output of the evaluation function coupled with a tree search?
+  * Train the evaluation function to approximate the output of the evaluation function coupled with a tree search.
 * UCI support
