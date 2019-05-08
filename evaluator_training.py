@@ -38,10 +38,10 @@ def stateVec2Mat(stateVec):
     outMatrix = []
     for i in piece_id:
         zslice = board == i
-        outMatrix.append(zslice.reshape((8,8)).astype(int))
-    outMatrix.append(np.full((8,8), whiteTurn))
+        outMatrix.append(zslice.astype(int))
+    outMatrix.append(np.array[whiteTurn])
     
-    return(np.array(outMatrix))
+    return(np.hstack(outMatrix))
 
 
 
