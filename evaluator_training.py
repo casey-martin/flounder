@@ -76,7 +76,7 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(
 
 history = model.fit(
   x, y,
-  epochs=args.epoch, 
+  epochs=args.epochs, 
   validation_split = 0.2, 
   verbose=args.verbose,
   callbacks = [cp_callback])
