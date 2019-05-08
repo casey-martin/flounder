@@ -17,6 +17,8 @@ parser.add_argument('--train_data', type=str, help='Input training data')
 parser.add_argument('--outdir', type=str, help='Directory where network weights will be saved.')
 parser.add_argument('--epochs', type=int, help='Number of epochs the model will be trained for.')
 parser.add_argument('--period', type=int, help='Periodicity of the checkpoint saves.')
+parser.add_argument('--model', type=str, default = None,
+                       help='Path to model to be trained. Omit flag if making a new model.')
 parser.add_argument('--verbose', type=int, default=2, help='0: silent; 1: verbose output; 2: Goldilocks')
 
 
@@ -61,7 +63,11 @@ def build_model():
                   metrics=['mean_absolute_error', 'mean_squared_error'])
     return(model)
 
-model = build_model()
+if args.model is None:
+    model = build_model()
+else:
+    model = build_model()
+    model.load_weights(args.model)
 
 
 checkpoint_path = os.path.join(args.outdir, "cp-{epoch:04d}.ckpt")
