@@ -1,3 +1,6 @@
+### CAUTION: READS ENTIRE FILE INTO MEMORY.
+### TODO: Read in only centipawn score and sample based off indices. 
+
 import argparse
 import csv
 import os
@@ -55,7 +58,7 @@ def main():
     if args.verbose:
         print('\nSaving to file...')
     #outFrame.to_csv(os.path.join(args.outdir, myOutname), header=False, index=False)
-    np.savetxt(os.path.join(args.outdir, myOutname), outFrame, delimiter=",")
+    np.savetxt(os.path.join(args.outdir, myOutname), outFrame, delimiter=",",fmt='%i')
 
 if __name__ == '__main__':
     main()
