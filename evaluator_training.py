@@ -13,9 +13,18 @@ import pandas as pd
 import tensorflow as tf
 import xgboost as xgb
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--train_data', type=str, help='Input training data')
+parser.add_argument('--outdir', type=str, help='Directory where network weights will be saved.')
+parser.add_argument('--epochs', type=int, help='Number of epochs the model will be trained for.')
+parser.add_argument('--period', type=int, help='Periodicity of the checkpoint saves.')
+
+
+args = parser.parse_args()
+
 piece_id = [-6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6]
 
-scoredGames = np.array(pd.read_csv('./training_data/fics_0_20000.csv', header=None))
+scoredGames = np.array(pd.read_csv(args.train_data, header=None))
 
 #x = np.array(scoredGames[:,:65])
 y = np.array(scoredGames[:,-1])
@@ -55,22 +64,18 @@ def build_model():
 model = build_model()
 
 
-checkpoint_path = "training/cp-{epoch:04d}.ckpt"
+checkpoint_path = os.path.join(args.outdir, "cp-{epoch:04d}.ckpt")
 checkpoint_dir = os.path.dirname(checkpoint_path)
 
 cp_callback = tf.keras.callbacks.ModelCheckpoint(
     checkpoint_path, verbose=1, save_weights_only=True,
     # Save weights, every epoch.
-    period=10)
+    period=args.period)
 
-
-
-
-EPOCHS = 70
 
 history = model.fit(
-  x, y,
-  epochs=EPOCHS, 
+  x, y
+  epochs=args.epoch, 
   validation_split = 0.2, 
   verbose=1,
   callbacks = [cp_callback])
