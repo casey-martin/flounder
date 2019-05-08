@@ -39,7 +39,7 @@ def stateVec2Mat(stateVec):
     for i in piece_id:
         zslice = board == i
         outMatrix.append(zslice.astype(int))
-    outMatrix.append(np.array[whiteTurn])
+    outMatrix.append(np.array([whiteTurn]))
     
     return(np.hstack(outMatrix))
 
@@ -49,7 +49,7 @@ x = np.array([stateVec2Mat(i) for i in scoredGames])
 
 def build_model():
     model = keras.Sequential()
-    model.add(layers.Dense(2048, activation='relu', input_shape=(13, 8, 8)))
+    model.add(layers.Dense(2048, activation='relu', input_shape=(769,)))
     model.add(layers.Dense(2048, activation=tf.nn.relu))
     model.add(layers.Dense(2048, activation=tf.nn.relu))
     model.add(tf.layers.Flatten())
