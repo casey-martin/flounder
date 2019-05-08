@@ -20,7 +20,8 @@ GNU-parallel (https://www.gnu.org/software/parallel/)
 ### High Priority:
 ![Distribution of Stockfish evaluations from games between master-level players.](https://github.com/casey-martin/lumpi/blob/master/figures/stockfish_eval_dist.png)
 
-Subsample training data. Over the course of a game between two master-level players, the vast majority of chess positions will have roughly an even board position. Training on this full dataset results in the network minimizing error by randomly guessing values around 0. Reducing the relative proportion of roughly equal positions should help mitigate this effect. However, this means we must throw out a majority of the training data for network initialization.
+* Subsample training data. 
+  * Over the course of a game between two master-level players, the vast majority of chess positions will have roughly an even board position. Training on this full dataset results in the network minimizing error by randomly guessing values around 0. Reducing the relative proportion of roughly equal positions should help mitigate this effect. However, this means we must throw out a majority of the training data for network initialization.
 
 ### Long Term:
 * Chess 960 compatibility.
