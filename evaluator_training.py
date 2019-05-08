@@ -74,27 +74,3 @@ history = model.fit(
   validation_split = 0.2, 
   verbose=1,
   callbacks = [cp_callback])
-
-
-model.load_weights('./training/cp-0008.ckpt')
-
-
-
-
-
-
-dataDmatrix = xgb.DMatrix(data=x,label=y)
-
-X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=123)
-
-xg_reg = xgb.XGBRegressor(objective ='reg:linear', colsample_bytree = 1.0, learning_rate = 0.1,
-                max_depth = 20, alpha = 10, n_estimators = 1000, nthread=8)
-
-xg_reg.fit(X_train,y_train)
-
-preds = xg_reg.predict(X_test)
-
-rmse = np.sqrt(mean_squared_error(y_test, preds))
-print("RMSE: %f" % (rmse))
-
-
