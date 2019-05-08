@@ -18,7 +18,7 @@ parser.add_argument('--train_data', type=str, help='Input training data')
 parser.add_argument('--outdir', type=str, help='Directory where network weights will be saved.')
 parser.add_argument('--epochs', type=int, help='Number of epochs the model will be trained for.')
 parser.add_argument('--period', type=int, help='Periodicity of the checkpoint saves.')
-parser.add_argument('--verbose, type=int, default=2, help='0: silent; 1: verbose output; 2: Goldilocks')
+parser.add_argument('--verbose', type=int, default=2, help='0: silent; 1: verbose output; 2: Goldilocks')
 
 
 args = parser.parse_args()
