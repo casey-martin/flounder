@@ -11,7 +11,6 @@ import numpy as np
 import os
 import pandas as pd
 import tensorflow as tf
-import xgboost as xgb
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--train_data', type=str, help='Input training data')
