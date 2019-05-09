@@ -51,6 +51,8 @@ def main():
     x = np.array([stateVec2Mat(i) for i in boardStates])
     
     y = boardStates[:,-1]
+    y[y < -10000] = -10000
+    y[y > 10000] = 10000
     y = (y-np.min(y))/(np.max(y)-np.min(y))
     y = y.reshape((y.shape[0],-1))
     model = build_model()
