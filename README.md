@@ -4,14 +4,14 @@
 Lumpi is an artificial neural network (ANN) based chess evaluation tool. A neural net is trained on positions scored by a
 conventional chess engine. Given a particular board state, the model predicts the corresponding centipawn value.
 
-External python libraries used:
-matplotlib,
-numpy,
-pandas,
-python-chess,
-scikit-learn,
-scipy,
-tensorflow
+External python libraries used:  
+matplotlib,  
+numpy,  
+pandas,  
+python-chess,  
+scikit-learn,  
+scipy,  
+tensorflow  
 
 Chess analysis engine:
 Stockfish (https://stockfishchess.org/)
@@ -20,15 +20,16 @@ Parallelism Tools:
 GNU-parallel (https://www.gnu.org/software/parallel/)
 
 ## Preliminary Findings:
+### Filter your training data:
+![Distribution of Stockfish evaluations from games between master-level players.](https://github.com/casey-martin/lumpi/blob/master/figures/stockfish_eval_dist.png)  
 
-![Distribution of Stockfish evaluations from games between master-level players.](https://github.com/casey-martin/lumpi/blob/master/figures/stockfish_eval_dist.png)
-
-* Downsample training data. 
-  * Over the course of a game between two master-level players, the vast majority of chess positions will have roughly an even board position. Training on this full dataset results in the network minimizing error by randomly guessing values around 0. Reducing the relative proportion of roughly equal positions mitigates this effect. However, this means we must throw out a majority of the training data for network initialization. 
-
-### Model performance after 30 epochs training (1.4M positions)
-![Initial network performance after fitting on downsampled training data.](https://github.com/casey-martin/lumpi/blob/master/figures/cp-0020.ckpt.png)
- Downsampling is successful and model has predictive power. Initial results are promising. Will continue with a larger dataset (~10M positions).
+* Increase evenness of the distribution of the training labels.
+  * Over the course of many games between two master-level players, >70% of moves will have roughly an even board position (  centipawn difference ~ 0). Training on this full dataset results in the network minimizing error by randomly guessing values around 0. Reducing the relative proportion of roughly equal positions mitigates this effect. However, this means we must throw out a majority of the training data for network initialization. 
+<br/><br/>
+### Model performance after 30 epochs training (1.4M positions) on downsampled data.
+![Initial network performance after fitting on downsampled training data.](https://github.com/casey-martin/lumpi/blob/master/figures/cp-0020.ckpt.png)  
+<br/><br/>
+  Downsampling is successful and model has predictive power. Initial results are promising. Will continue with a larger dataset (~10M positions).
 
 ## TODO:
 ### Immediate:
