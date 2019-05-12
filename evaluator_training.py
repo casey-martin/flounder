@@ -12,6 +12,24 @@ import os
 import pandas as pd
 import tensorflow as tf
 
+def build_model():
+    model = keras.Sequential()
+    model.add(layers.Dense(2048, activation='relu', input_shape=(769,)))
+    model.add(layers.Dropout(0.2))
+    model.add(layers.Dense(2048, activation=tf.nn.relu))
+    model.add(layers.Dropout(0.2))
+    model.add(layers.Dense(2048, activation=tf.nn.relu))
+    model.add(layers.Dropout(0.2))
+    #model.add(layers.Activation("softmax"))
+    model.add(layers.Dense(1))
+    optimizer = tf.keras.optimizers.SGD(lr=0.001, momentum=0.7, decay=1e-08, nesterov=True)
+
+    model.compile(loss='mean_squared_error',
+                  optimizer=optimizer,
+                  metrics=['mean_absolute_error', 'mean_squared_error'])
+    return(model)
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--train_data', type=str, help='Input training data')
 parser.add_argument('--outdir', type=str, help='Directory where network weights will be saved.')
@@ -48,20 +66,6 @@ def stateVec2Mat(stateVec):
 
 
 x = np.array([stateVec2Mat(i) for i in scoredGames])
-
-def build_model():
-    model = keras.Sequential()
-    model.add(layers.Dense(2048, activation='relu', input_shape=(769,)))
-    model.add(layers.Dense(2048, activation=tf.nn.relu))
-    model.add(layers.Dense(2048, activation=tf.nn.relu))
-    model.add(tf.layers.Flatten())
-    model.add(layers.Dense(1))
-    optimizer = tf.keras.optimizers.SGD(lr=0.001, momentum=0.7, decay=1e-08, nesterov=True)
-
-    model.compile(loss='mean_squared_error',
-                  optimizer=optimizer,
-                  metrics=['mean_absolute_error', 'mean_squared_error'])
-    return(model)
 
 if args.model is None:
     model = build_model()
