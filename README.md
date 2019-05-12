@@ -45,10 +45,13 @@ GNU-parallel (https://www.gnu.org/software/parallel/)
   * Beta-pruning and MCTS implementation? Python performance will be a limiting factor. Cython implementation of python-chess? 
 * Amplification reinforcement
   * Train the evaluation function to approximate the output of the evaluation function coupled with a tree search.
-* UCI support
+* UCI support (http://wbec-ridderkerk.nl/html/UCIProtocol.html)
 
 ## Sabatelli et. al.
 https://pdfs.semanticscholar.org/5171/32097f4de960f154185a8a8fec4178a15665.pdf  
 * Achieved an MSE of 0.0016 on ~3M position dataset. 
   * Did not report on how positions were selected or number of epochs for convergence. 
-  * Did not mention the centipawn value used for mate/mate-in-N. 
+  * Did not mention the centipawn value used for mate/mate-in-N.
+* Claim to have a centipawn error of 0.04, which does not correspond to its estimated FIDE ELO of ~2000.
+  * My calculation puts it at a mean 80 centipawn error which places its ELO estimation closer to 1600. (https://chess-db.com/public/research/qualityofplay.html)
+* Using a similarly sized dataset with the same network architecture and learning parameters, I can achieve MSE of 0.0062 after 50 epochs of training. 
