@@ -88,6 +88,49 @@ def analyzeGame(mygame, myengine, limit):
     return(cleanBoardStates)
 
 
+def analyzeGameVar(mygame, myengine, limit):
+    '''Iterates through mainline in the game and evaluates each position.
+       Returns the board state as a vector its corresponding evaluation score.
+       Evaluation is given in centipawns'''
+
+    moveScores = []
+    boardStates = []
+    board = mygame.board()
+    for move in mygame.mainline_moves():
+        board.push(move)
+        for possMove in board.legal_moves:
+            tmpBoard = deepcopy(board)
+            
+            # generate and evaluate all legal moves
+            tmpBoard.push(possMove)
+            myscore = sfScore(tmpBoard,myengine,limit)
+            mystate = board2Vec(tmpBoard)
+            moveScores.append(myscore)
+            boardStates.append(mystate)
+
+            # generate and evaluate best response to all legal moves
+            bestMove = myengine.play(tmpBoard, mylimit)
+            tmpBoard.push(bestMove.move)
+            myscore = sfScore(tmpBoard,myengine,limit)
+            mystate = board2Vec(tmpBoard)
+            moveScores.append(myscore)
+            boardStates.append(mystate)
+
+
+   
+    boardStates = [list(i) for i in boardStates] 
+    for i,j in zip(boardStates, moveScores):
+        i.append(j)
+
+    cleanBoardStates = []
+    for i in boardStates:
+        cleanBoardStates.append(list(map(int, i)))
+
+ 
+    return(cleanBoardStates)
+
+
+
 def scorePgnChunk(pgn, myengine, limit, job, nprocs, outdir, verbose=True):
     
     
@@ -132,12 +175,13 @@ def scorePgnChunk(pgn, myengine, limit, job, nprocs, outdir, verbose=True):
             else:
                 for i in range(numGames):
                     mygame = chess.pgn.read_game(myPgnShard)
-                    boardStates = analyzeGame(mygame, myengine, limit)
+                    boardStates = analyzeGameVar(mygame, myengine, limit)
                     
                     for state in boardStates:
                         outfile.write(','.join(map(str,state)) + '\n')
 
     print('\nJob:', job, 'complete.')
+
  
 parser = argparse.ArgumentParser()
 parser.add_argument('--pgn', type=str, help='input pgn file to split.')
