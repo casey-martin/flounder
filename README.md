@@ -4,16 +4,7 @@
 Lumpi is an artificial neural network (ANN) based chess evaluation tool. A neural net is trained on positions scored by a
 conventional chess engine. Given a particular board state, the model predicts the corresponding centipawn value.
 
-External python libraries used:  
-matplotlib,  
-numpy,  
-pandas,  
-python-chess,  
-scikit-learn,  
-scipy,  
-tensorflow  
-
-Chess analysis engine:
+Chess analysis engine used for generation of training data:
 Stockfish (https://stockfishchess.org/)
 
 Parallelism Tools:
