@@ -32,7 +32,9 @@ def main():
     if args.verbose:
         print('\nReindexing...')
     # sort by absolute centipawn value. 
-    trainData = trainData[trainData[:,-1].argsort()][::-1]
+    #trainData = trainData[trainData[:,-1].argsort()][::-1]
+    trainData = np.array(sorted(trainData, key=lambda row: np.abs(row[-1]), reverse=True))
+
     #trainData.index = range(len(trainData))
     
     thresh = round(args.cutoff * trainData.shape[0])
