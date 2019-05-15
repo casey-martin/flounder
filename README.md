@@ -27,14 +27,11 @@ GNU-parallel (https://www.gnu.org/software/parallel/)
 * Memory Usage:
   * Implement tensorflow's dataset pipeline in evaluator_training.py so training data isn't loaded into RAM all at once.
   * Redo downsample_training script so board states aren't loaded into memory. 
-  * Reduce size of third hidden layer.
-  * Add smaller fourth layer (five nodes for each of the peaks in the distribution?) and softmax for final node.
 
 ### Long Term:
 * Chess 960 compatibility.
   * I suspect that increasing the diversity of board states in the training data will help the network learn more generalizable policies.
 * Game tree search.
-  * Current plan is a greedy policy: choose the highest evaluated move a half ply deep. 
   * Beta-pruning and MCTS implementation? Python performance will be a limiting factor. Cython implementation of python-chess? 
 * Amplification reinforcement
   * Train the evaluation function to approximate the output of the evaluation function coupled with a tree search.
