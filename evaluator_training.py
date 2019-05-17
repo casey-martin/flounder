@@ -92,20 +92,23 @@ def tfdata_generator(csv_filename, header_lines, delim, batch_size):
      
 parser = argparse.ArgumentParser()
 parser.add_argument('--train_data', type=str, help='Input training data')
+parser.add_argument('--test_data', type=str, help='Input validation data')
 parser.add_argument('--outdir', type=str, help='Directory where network weights will be saved.')
 parser.add_argument('--epochs', type=int, help='Number of epochs the model will be trained for.')
 parser.add_argument('--period', type=int, help='Periodicity of the checkpoint saves.')
 parser.add_argument('--weights', type=str, default = None,
-                       help='Path to pretrained weights. Omit flag if making a new model.')
-parser.add_argument('--batch_size', type=int, default=128, help='Training batch size')
-parser.add_argument('--verbose', type=int, default=2, help='0: silent; 1: verbose output; 2: Goldilocks')
+                       help='Path to pretrained weights. Omit flag if making a new model. Default=None')
+parser.add_argument('--batch_size', type=int, default=128, help='Training batch size. Default=128')
+parser.add_argument('--verbose', type=int, default=2, help='0: silent; 1: verbose output; 2: Goldilocks. Default=2')
 
 
 args = parser.parse_args()
 
 
 dataset = tfdata_generator(csv_filename=args.train_data, header_lines=0, delim=',', batch_size=args.batch_size)
+testset = tfdata_generator(csv_filename=args.test_data, header_lines=0, delim=',', batch_size=args.batch_size)
 trainingSize = numLines(args.train_data)
+testSize = numLines(args.test_data)
 
 if args.weights is None:
     model = build_model()
@@ -125,8 +128,10 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(
 
 model.fit_generator(
   dataset,
+  validation_data=testset,
   workers=0,
   steps_per_epoch=trainingSize // args.batch_size,
+  validation_steps=testSize // args.batch_size,
   epochs=args.epochs, 
   verbose=args.verbose,
   callbacks = [cp_callback])
