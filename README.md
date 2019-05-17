@@ -25,7 +25,6 @@ GNU-parallel (https://www.gnu.org/software/parallel/)
 ## TODO:
 ### Immediate:
 * Memory Usage:
-  * Implement tensorflow's dataset pipeline in evaluator_training.py so training data isn't loaded into RAM all at once.
   * Redo downsample_training script so board states aren't loaded into memory. 
 
 ### Long Term:
