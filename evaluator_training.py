@@ -1,11 +1,15 @@
-# CAUTION! TERRIBLE RAM MANAGEMENT IN PLACE.
-# TODO: Implement tensorflow's dataset pipeline
-# so the entire file isn't read into memory.
+# Bootleg tf dataset pipeline in place. 
+# for tf > 1.9, keras models can directly accept tf datasets.
+# my cuda/cudnn drivers and utilities are incompatible 
+# with current tf versions. Will update this script once I 
+# can find the courage to try and reinstall nvidia software.
 
+from pgn_splitter import numLines
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from tensorflow import keras
 from tensorflow.python.keras import layers
+from tensorflow.python.keras import backend as K
 import argparse
 import numpy as np
 import os
@@ -16,62 +20,98 @@ def build_model():
     model = keras.Sequential()
     model.add(layers.Dense(2048, activation='relu', input_shape=(769,)))
     model.add(layers.Dropout(0.2))
-    model.add(layers.Dense(2048, activation=tf.nn.relu))
+    model.add(layers.Dense(2048, activation=tf.nn.relu, input_shape=(769,)))
     model.add(layers.Dropout(0.2))
-    model.add(layers.Dense(2048, activation=tf.nn.relu))
+    model.add(layers.Dense(1050, activation=tf.nn.relu, input_shape=(769,)))
     model.add(layers.Dropout(0.2))
-    #model.add(layers.Activation("softmax"))
+    model.add(layers.Dense(5))
     model.add(layers.Dense(1))
-    optimizer = tf.keras.optimizers.SGD(lr=0.001, momentum=0.7, decay=1e-08, nesterov=True)
+    #model.add(layers.Dense(1))
+    optimizer = tf.keras.optimizers.SGD(lr=0.001, momentum=0.7, nesterov=True)
 
     model.compile(loss='mean_squared_error',
                   optimizer=optimizer,
                   metrics=['mean_absolute_error', 'mean_squared_error'])
     return(model)
 
+       
 
+
+def stateVec2Mat(stateVec):
+
+    piece_id = [-6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6]
+    minCp = -10000
+    maxCp = 10000
+    
+    board = stateVec[:64]
+    whiteTurn = tf.reshape(tf.to_int32(stateVec[64]), [-1])
+    outMatrix = tf.concat([tf.to_int32(tf.equal(board,i)) for i in piece_id],axis=0)
+    outMatrix = tf.concat([outMatrix, whiteTurn], axis=0)
+    #univariate centipawn score.
+    
+    centipawn_norm = tf.reshape(tf.clip_by_value(stateVec[-1], minCp, maxCp), [-1])
+    centipawn_norm = (centipawn_norm - minCp)/(maxCp - minCp)
+     
+    return(outMatrix, centipawn_norm)
+
+
+
+def make_tld(csv_filename, header_lines, delim, batch_size):
+    dataset = tf.data.TextLineDataset(filenames=csv_filename).skip(header_lines)
+
+    def parse_csv(line):
+        cols_types = [[]] * 66
+        columns = tf.decode_csv(line, record_defaults=cols_types, field_delim=delim)
+        return(stateVec2Mat(tf.stack(columns)))
+
+    dataset = dataset.map(parse_csv).batch(batch_size)
+
+    return(dataset)
+ 
+
+def tfdata_generator(csv_filename, header_lines, delim, batch_size):
+    dataset = tf.data.TextLineDataset(filenames=csv_filename).skip(header_lines)
+
+    def parse_csv(line):
+        cols_types = [[]] * 66
+        columns = tf.decode_csv(line, record_defaults=cols_types, field_delim=delim)
+        return(stateVec2Mat(tf.stack(columns)))
+
+    dataset = dataset.map(parse_csv)
+    dataset = dataset.batch(batch_size)
+    dataset = dataset.repeat()
+    dataset = dataset.prefetch(buffer_size=batch_size)
+    iterator = dataset.make_one_shot_iterator()
+
+    next_batch = iterator.get_next()
+    # https://stackoverflow.com/questions/46135499/how-to-properly-combine-tensorflows-dataset-api-and-keras
+    while True:
+        yield K.get_session().run(next_batch)
+    
+    #return(dataset)
+     
 parser = argparse.ArgumentParser()
 parser.add_argument('--train_data', type=str, help='Input training data')
 parser.add_argument('--outdir', type=str, help='Directory where network weights will be saved.')
 parser.add_argument('--epochs', type=int, help='Number of epochs the model will be trained for.')
 parser.add_argument('--period', type=int, help='Periodicity of the checkpoint saves.')
-parser.add_argument('--model', type=str, default = None,
-                       help='Path to model to be trained. Omit flag if making a new model.')
+parser.add_argument('--weights', type=str, default = None,
+                       help='Path to pretrained weights. Omit flag if making a new model.')
+parser.add_argument('--batch_size', type=int, default=128, help='Training batch size')
 parser.add_argument('--verbose', type=int, default=2, help='0: silent; 1: verbose output; 2: Goldilocks')
 
 
 args = parser.parse_args()
 
-piece_id = [-6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6]
 
-scoredGames = np.array(pd.read_csv(args.train_data, header=None))
+dataset = tfdata_generator(csv_filename=args.train_data, header_lines=0, delim=',', batch_size=args.batch_size)
+trainingSize = numLines(args.train_data)
 
-#x = np.array(scoredGames[:,:65])
-y = np.array(scoredGames[:,-1])
-#normalize y values
-y = (y-min(y))/(max(y)-min(y)) 
-
-def stateVec2Mat(stateVec):
-    board = stateVec[:64]
-    whiteTurn = stateVec[64]
-    
-    outMatrix = []
-    for i in piece_id:
-        zslice = board == i
-        outMatrix.append(zslice.astype(int))
-    outMatrix.append(np.array([whiteTurn]))
-    
-    return(np.hstack(outMatrix))
-
-
-
-x = np.array([stateVec2Mat(i) for i in scoredGames])
-
-if args.model is None:
+if args.weights is None:
     model = build_model()
 else:
     model = build_model()
-    model.load_weights(args.model)
+    model.load_weights(args.weights)
 
 
 checkpoint_path = os.path.join(args.outdir, "cp-{epoch:04d}.ckpt")
@@ -83,9 +123,10 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(
     period=args.period)
 
 
-history = model.fit(
-  x, y,
+model.fit_generator(
+  dataset,
+  workers=0,
+  steps_per_epoch=trainingSize // args.batch_size,
   epochs=args.epochs, 
-  validation_split = 0.2, 
   verbose=args.verbose,
   callbacks = [cp_callback])
