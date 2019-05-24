@@ -24,6 +24,8 @@ GNU-parallel (https://www.gnu.org/software/parallel/)
 
 ## TODO:
 ### Immediate:
+* Training Performance:
+  * Redo models to accept tf dataset objects.
 * Memory Usage:
   * Redo downsample_training script so board states aren't loaded into memory. 
 
