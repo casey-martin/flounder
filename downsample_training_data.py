@@ -10,7 +10,8 @@ import pandas as pd
 parser = argparse.ArgumentParser()
 parser.add_argument('--train_data', type=str, help='Input training data')
 parser.add_argument('--outdir', type=str, help='Directory to which subsampled training data will be written.')
-parser.add_argument('--cutoff', type=float, default=0.1, help='Percentage cutoff')
+parser.add_argument('--cutoff', type=float, default=0.1, help='Percentile cutoff')
+parser.add_argument('--depth', type=float, default=0.1, help='Samples below the perentile cutoff will be randomly subsampled at this depth. Default=0.1')
 parser.add_argument('--verbose', type=bool, default=True, help='Gives updates on script progress')
 
 args = parser.parse_args()
@@ -41,11 +42,14 @@ def main():
     
     # Save the top percent of extreme centipawn evals from the training data.
     outFrame = [trainData[:thresh]]
+    remainFrame = trainData[thresh:] 
+    
+    subsampleN = round(args.depth * trainData.shape[0])
 
 
     # Sample the remaining data.
     #outFrame.append(trainData.iloc[thresh:].sample(n=thresh, axis=0))
-    outFrame.append(trainData[np.random.choice(trainData.shape[0], thresh, replace=False), :])
+    outFrame.append(remainFrame[np.random.choice(remainFrame.shape[0], subsampleN, replace=False), :])
 
     outFrame = np.concatenate(outFrame)
 
