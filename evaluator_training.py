@@ -56,7 +56,7 @@ def stateVec2Mat(stateVec):
 
 
 
-def make_tld(csv_filename, header_lines, delim, batch_size):
+def make_tld(csv_filename, header_lines, delim, buffer_size):
     dataset = tf.data.TextLineDataset(filenames=csv_filename).skip(header_lines)
 
     def parse_csv(line):
@@ -64,12 +64,12 @@ def make_tld(csv_filename, header_lines, delim, batch_size):
         columns = tf.decode_csv(line, record_defaults=cols_types, field_delim=delim)
         return(stateVec2Mat(tf.stack(columns)))
 
-    dataset = dataset.map(parse_csv).batch(batch_size)
+    dataset = dataset.map(parse_csv).batch(buffer_size)
 
     return(dataset)
  
 
-def tfdata_generator(csv_filename, header_lines, delim, batch_size):
+def tfdata_generator(csv_filename, header_lines, delim, batch_size, buffer_size, parallel_calls):
     dataset = tf.data.TextLineDataset(filenames=csv_filename).skip(header_lines)
 
     def parse_csv(line):
@@ -77,10 +77,10 @@ def tfdata_generator(csv_filename, header_lines, delim, batch_size):
         columns = tf.decode_csv(line, record_defaults=cols_types, field_delim=delim)
         return(stateVec2Mat(tf.stack(columns)))
 
-    dataset = dataset.map(parse_csv)
+    dataset = dataset.map(parse_csv, num_parallel_calls=parallel_calls)
     dataset = dataset.batch(batch_size)
     dataset = dataset.repeat()
-    dataset = dataset.prefetch(buffer_size=batch_size)
+    dataset = dataset.prefetch(buffer_size=buffer_size)
     iterator = dataset.make_one_shot_iterator()
 
     next_batch = iterator.get_next()
@@ -98,15 +98,20 @@ parser.add_argument('--epochs', type=int, help='Number of epochs the model will 
 parser.add_argument('--period', type=int, help='Periodicity of the checkpoint saves.')
 parser.add_argument('--weights', type=str, default = None,
                        help='Path to pretrained weights. Omit flag if making a new model. Default=None')
-parser.add_argument('--batch_size', type=int, default=128, help='Training batch size. Default=128')
+parser.add_argument('--batch_size', type=int, default=256, help='Training batch size. Default=256')
+parser.add_argument('--buffer_size', type=int, default=5620, help='Prefetch buffer size. Default=2560')
 parser.add_argument('--verbose', type=int, default=2, help='0: silent; 1: verbose output; 2: Goldilocks. Default=2')
-
+parser.add_argument('--parallel_calls', type=int, default=2, help='Number of cores devoted to data preprocessing. Default=2')
 
 args = parser.parse_args()
 
 
-dataset = tfdata_generator(csv_filename=args.train_data, header_lines=0, delim=',', batch_size=args.batch_size)
-testset = tfdata_generator(csv_filename=args.test_data, header_lines=0, delim=',', batch_size=args.batch_size)
+dataset = tfdata_generator(csv_filename=args.train_data, header_lines=0, delim=',', batch_size=args.batch_size,
+                           buffer_size=args.buffer_size, parallel_calls=args.parallel_calls)
+
+testset = tfdata_generator(csv_filename=args.test_data, header_lines=0, delim=',', batch_size=args.batch_size,
+                           buffer_size=args.buffer_size, parallel_calls=args.parallel_calls)
+
 trainingSize = numLines(args.train_data)
 testSize = numLines(args.test_data)
 

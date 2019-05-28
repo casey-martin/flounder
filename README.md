@@ -20,10 +20,12 @@ GNU-parallel (https://www.gnu.org/software/parallel/)
 ### Model performance after 30 epochs training (1.4M positions) on downsampled data.
 ![Initial network performance after fitting on downsampled training data.](https://github.com/casey-martin/lumpi/blob/master/figures/cp-0020.ckpt.png)  
 <br/><br/>
-  Downsampling is successful and model has predictive power. Initial results are promising. Will continue with a larger dataset (~10M positions).
+  Downsampling is successful and model has predictive power. Initial results are promising. Will continue with a larger dataset (~20M positions).
 
 ## TODO:
 ### Immediate:
+* Training Performance:
+  * Redo models to accept tf dataset objects.
 * Memory Usage:
   * Redo downsample_training script so board states aren't loaded into memory. 
 
@@ -47,4 +49,3 @@ https://github.com/paintception/DeepChess
 
 * Claim to have a centipawn error of 0.04, which does not correspond to its estimated FIDE ELO of ~2000.
   * With mate==10000 centipawns, an MSE of 0.0016 is an 80 centipawn error which places its ELO estimation closer to 1600. (https://chess-db.com/public/research/qualityofplay.html)
-* Using a similarly sized dataset with similar network architecture (no dropout) and learning parameters, I can achieve MSE of 0.0062 on validation data (0.0051 test data) after 50 epochs of training. 
