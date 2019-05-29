@@ -3,7 +3,6 @@ from copy import deepcopy
 from io import StringIO  # Python3
 from tensorflow import keras
 from tensorflow.python.keras import layers
-from evaluator_training import build_model
 import chess
 import numpy as np
 import sys
@@ -15,7 +14,23 @@ parser.add_argument('--model', type=str, help='Path to ANN evaluator weights.')
 parser.add_argument('--playerWhite', type=bool, default = True, help='True/False. Will the player play as white?')
 args = parser.parse_args()
 
+def build_model():
+    model = keras.Sequential()
+    model.add(layers.Dense(2048, activation='relu', input_shape=(769,)))
+    model.add(layers.Dropout(0.2))
+    model.add(layers.Dense(2048, activation=tf.nn.relu, input_shape=(769,)))
+    model.add(layers.Dropout(0.2))
+    model.add(layers.Dense(1050, activation=tf.nn.relu, input_shape=(769,)))
+    model.add(layers.Dropout(0.2))
+    model.add(layers.Dense(5))
+    model.add(layers.Dense(1))
+    #model.add(layers.Dense(1))
+    optimizer = tf.keras.optimizers.SGD(lr=0.001, momentum=0.7, nesterov=True)
 
+    model.compile(loss='mean_squared_error',
+                  optimizer=optimizer,
+                  metrics=['mean_absolute_error', 'mean_squared_error'])
+    return(model)
 
 class greedySearch:
     def __init__(self, model, board):
