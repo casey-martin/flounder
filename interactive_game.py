@@ -232,10 +232,16 @@ class lookAhead:
 
             #topHits = np.hstack(np.where(evals == evals.min()))
             #move = np.random.choice(topHits, 1)[0]
-            move = np.argmin(evals)
+            if depth % 2:
+                move = np.argmax(evals)
+            else:
+                move = np.argmin(evals)
             print('Top move:', myLegalMoves[move])
             #print(OrderedDict(zip([str(i) for i in myLegalMoves], [float(j) for j in evals])))
-            return(myLegalMoves[move], min(evals))
+            if depth % 2:
+                return(myLegalMoves[move], max(evals))
+            else:
+                return(myLegalMoves[move], min(evals))
 
 
     #    def currentEval(self):
@@ -257,7 +263,7 @@ def ply(board, model_1, model_2):
             #print('Current evaluation:', greedySearch(model_1, board).currentEval())
             searchStrat = lookAhead(model_1, board)
             t0=time.time()
-            bestAction, actionEval = searchStrat.bestMoveAB(depth=2) 
+            bestAction, actionEval = searchStrat.bestMoveAB(depth=1) 
             t1 = time.time()
             print('Time to move:', t1-t0)
             print('Move eval:',1-actionEval)
@@ -269,7 +275,7 @@ def ply(board, model_1, model_2):
             print('Black turn')
             searchStrat = lookAhead(model_2, board)
             t0 = time.time()
-            bestAction, actionEval = searchStrat.bestMoveMM(depth=2) 
+            bestAction, actionEval = searchStrat.bestMoveAB(depth=0) 
             t1 = time.time()
             print('Time to move:',t1-t0)
             print('Move eval:', 1-actionEval)
@@ -284,10 +290,10 @@ def game(board, model_1, model_2):
 def main():
     model_1 = build_model()
     model_1.load_weights(args.model_1)
-    model_2 = build_model()
-    model_2.load_weights(args.model_2)
+#    model_2 = build_model()
+#    model_2.load_weights(args.model_2)
     board = chess.Board()
-    game(board, model_1, model_2)
+    game(board, model_1, model_1)
 
 if __name__ == '__main__':
     main()
