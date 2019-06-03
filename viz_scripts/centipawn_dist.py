@@ -16,7 +16,7 @@ with open(args.infile) as f:
         scores.append(int(line.strip().split(',')[-1]))
 
 fig, ax = plt.subplots(nrows=1, ncols=1)
-ax.hist(scores, bins=40)
+ax.hist(scores, bins=40, weights=np.ones(len(scores))/len(scores))
 
 outName = os.path.basename(args.infile) + '.png'
 
