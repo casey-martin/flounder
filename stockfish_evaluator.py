@@ -156,7 +156,7 @@ def scorePgnChunk(pgn, myengine, limit, job, nprocs, outdir, verbose=True):
                     start = time.time() 
 
                     mygame = chess.pgn.read_game(myPgnShard)
-                    boardStates = analyzeGame(mygame, myengine, limit)
+                    boardStates = analyzeGameVar(mygame, myengine, limit)
                     #print(boardStates)
                     
                     for state in boardStates:
