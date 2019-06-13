@@ -6,6 +6,8 @@ from tensorflow import keras
 from tensorflow.python.keras import layers
 import chess
 import numpy as np
+import os
+os.environ['CUDA_VISIBLE_DEVICES']='-1'
 import sys
 import tensorflow as tf
 import time
@@ -14,6 +16,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--model_1', type=str, help='Path to ANN evaluator weights.')
 parser.add_argument('--model_2', type=str, help='Path to ANN evaluator weights.')
 parser.add_argument('--playerWhite', type=bool, default = True, help='True/False. Will the player play as white?')
+parser.add_argument('--depth_1', type=int, default=1, help='Search depth for engine')
 args = parser.parse_args()
 
 def build_model():
@@ -263,7 +266,7 @@ def ply(board, model_1, model_2):
             #print('Current evaluation:', greedySearch(model_1, board).currentEval())
             searchStrat = lookAhead(model_1, board)
             t0=time.time()
-            bestAction, actionEval = searchStrat.bestMoveAB(depth=1) 
+            bestAction, actionEval = searchStrat.bestMoveAB(depth=0) 
             t1 = time.time()
             print('Time to move:', t1-t0)
             print('Move eval:',1-actionEval)
@@ -282,10 +285,38 @@ def ply(board, model_1, model_2):
             board.push(bestAction)
             print(board)
             
+
+def plyPlayer(board, model_1, model_2):
+    
+
+    while True:
+        
+        print('White turn')
+        advance = input()
+        try:
+            board.push_san(advance)
+
+            print('\n')
+            print(board)
+            print('\n')
+            print('Black turn')
+            searchStrat = lookAhead(model_2, board)
+            t0 = time.time()
+            bestAction, actionEval = searchStrat.bestMoveAB(depth=args.depth_1) 
+            t1 = time.time()
+            print('Time to move:',t1-t0)
+            print('Move eval:', 1-actionEval)
+            board.push(bestAction)
+            print(board)
+        except ValueError:
+            print('Illegal move. Try again')
+            print(board)
+            print(board.legal_moves)
+
     
 def game(board, model_1, model_2):
     while board.result() == '*':
-        ply(board,model_1, model_2)
+        plyPlayer(board,model_1, model_2)
 
 def main():
     model_1 = build_model()
