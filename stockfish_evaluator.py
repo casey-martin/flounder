@@ -111,12 +111,16 @@ def analyzeGameVar(mygame, myengine, limit):
                 boardStates.append(mystate)
 
                 # generate and evaluate best response to all legal moves
-                bestMove = myengine.play(tmpBoard, mylimit)
-                tmpBoard.push(bestMove.move)
-                myscore = sfScore(tmpBoard,myengine,limit)
-                mystate = board2Vec(tmpBoard)
-                moveScores.append(myscore)
-                boardStates.append(mystate)
+                bestMove = myengine.play(tmpBoard, limit)
+                if bestMove.move is not None:
+                    tmpBoard.push(bestMove.move)
+                    myscore = sfScore(tmpBoard,myengine,limit)
+                    mystate = board2Vec(tmpBoard)
+                    moveScores.append(myscore)
+                    boardStates.append(mystate)
+                else:
+                    continue
+
         else:
             myscore = sfScore(board,myengine,limit)
             mystate = board2Vec(board)
