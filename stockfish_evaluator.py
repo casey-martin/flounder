@@ -96,26 +96,32 @@ def analyzeGameVar(mygame, myengine, limit):
     moveScores = []
     boardStates = []
     board = mygame.board()
-    for move in mygame.mainline_moves():
+    gameLen = len(list(mygame.mainline_moves()))
+    for moveNum, move in enumerate(mygame.mainline_moves()):
         board.push(move)
-        for possMove in board.legal_moves:
-            tmpBoard = deepcopy(board)
-            
-            # generate and evaluate all legal moves
-            tmpBoard.push(possMove)
-            myscore = sfScore(tmpBoard,myengine,limit)
-            mystate = board2Vec(tmpBoard)
+        if moveNum < gameLen:
+            for possMove in board.legal_moves:
+                tmpBoard = deepcopy(board)
+                
+                # generate and evaluate all legal moves
+                tmpBoard.push(possMove)
+                myscore = sfScore(tmpBoard,myengine,limit)
+                mystate = board2Vec(tmpBoard)
+                moveScores.append(myscore)
+                boardStates.append(mystate)
+
+                # generate and evaluate best response to all legal moves
+                bestMove = myengine.play(tmpBoard, mylimit)
+                tmpBoard.push(bestMove.move)
+                myscore = sfScore(tmpBoard,myengine,limit)
+                mystate = board2Vec(tmpBoard)
+                moveScores.append(myscore)
+                boardStates.append(mystate)
+        else:
+            myscore = sfScore(board,myengine,limit)
+            mystate = board2Vec(board)
             moveScores.append(myscore)
             boardStates.append(mystate)
-
-            # generate and evaluate best response to all legal moves
-            bestMove = myengine.play(tmpBoard, mylimit)
-            tmpBoard.push(bestMove.move)
-            myscore = sfScore(tmpBoard,myengine,limit)
-            mystate = board2Vec(tmpBoard)
-            moveScores.append(myscore)
-            boardStates.append(mystate)
-
 
    
     boardStates = [list(i) for i in boardStates] 
