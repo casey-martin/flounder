@@ -1,8 +1,7 @@
 <img src="https://github.com/casey-martin/flounder/blob/master/figures/flounder.svg" alt="drawing" width="150">
 
 # Flounder
-Flounder is an artificial neural network (ANN) based chess evaluation tool. A neural net is trained on positios scored by a
-conventional chess engine. Given a particular board state, the model predicts the corresponding centipawn value.
+Flounder is an artificial neural network (ANN) based chess evaluation tool. Like its piscine namesake, Flounder is a bottom feeder; it learns from positions labeled by an existing (and likely much better) chess engine. Given a particular board state, the model predicts the corresponding evaluation. The goal of this training schematic is to create an evaluation function that approximates the tree search of the engine that is training Flounder.
 
 Chess analysis engine used for generation of training data:
 Stockfish (https://stockfishchess.org/)
