@@ -1,7 +1,6 @@
 <img src="https://github.com/casey-martin/flounder/blob/master/figures/flounder.svg" alt="drawing" width="150">
+
 # Flounder
-
-
 Flounder is an artificial neural network (ANN) based chess evaluation tool. A neural net is trained on positios scored by a
 conventional chess engine. Given a particular board state, the model predicts the corresponding centipawn value.
 
