@@ -1,7 +1,7 @@
-# lumpi
+# Flounder
 ## ANN Chess Engine
 
-Lumpi is an artificial neural network (ANN) based chess evaluation tool. A neural net is trained on positions scored by a
+Flounder is an artificial neural network (ANN) based chess evaluation tool. A neural net is trained on positions scored by a
 conventional chess engine. Given a particular board state, the model predicts the corresponding centipawn value.
 
 Chess analysis engine used for generation of training data:
@@ -12,13 +12,13 @@ GNU-parallel (https://www.gnu.org/software/parallel/)
 
 ## Preliminary Findings:
 ### Filter your training data:
-![Distribution of Stockfish evaluations from games between master-level players.](https://github.com/casey-martin/lumpi/blob/master/figures/stockfish_eval_dist.png)  
+![Distribution of Stockfish evaluations from games between master-level players.](https://github.com/casey-martin/flounder/blob/master/figures/stockfish_eval_dist.png)  
 
 * Increase evenness of the distribution of the training labels.
   * Over the course of many games between two master-level players, >70% of moves will have roughly an even board position (  centipawn difference ~ 0). Training on this full dataset results in the network minimizing error by randomly guessing values around 0. Reducing the relative proportion of roughly equal positions mitigates this effect. However, this means we must throw out a majority of the training data for network initialization. 
 <br/><br/>
 ### Model performance after 250 epochs training (20M positions) on downsampled data.
-![Initial network performance after fitting on downsampled training data.](https://github.com/casey-martin/lumpi/blob/master/figures/cp-1360.ckpt.png)  
+![Initial network performance after fitting on downsampled training data.](https://github.com/casey-martin/flounder/blob/master/figures/cp-1360.ckpt.png)  
 <br/><br/>
 Evaluation function coupled with alpha-beta search 3 moves deep results in highly aggressive play.
 
