@@ -19,14 +19,28 @@ GNU-parallel (https://www.gnu.org/software/parallel/)
 ### Model performance after 250 epochs training (20M positions) on downsampled data.
 ![Initial network performance after fitting on downsampled training data.](https://github.com/casey-martin/flounder/blob/master/figures/cp-1360.ckpt.png)  
 <br/><br/>
-Evaluation function coupled with alpha-beta search 3 moves deep results in highly aggressive play.
+Evaluation function coupled with alpha-beta search 3 moves deep results in flawed and highly aggressive play.
 
 ## TODO:
-### Immediate:
-* Training Performance:
-  * Redo models to accept tf dataset objects.
-* Memory Usage:
-  * Redo downsample_training script so board states aren't loaded into memory. 
+### High Priority:
+#### 1. Network architecture:
+* 256 x 20 like Leela? Pared-down?
+#### 2. Memory Usage:
+* Reencode board states. Predicted ~30% memory footprint of original encoding.
+    * h5py_file.create_dataset("boardStates", data=np.array(data, dtype='S')). Write labels as float to separate hdf5.
+    * Use of h5df will also increase read and load speeds.
+#### 3. Training Scheduling:
+* Create a scheduled host process to check if training folder has been populated since last training run.
+    * Train for N epochs, update saved weights, and record size of training batch and network performance.
+    * Schedule minimatch with Stockfish if there's time between batches?
+    * Move processed board states and labels for archival storage.
+* Create a client process that submits both a parallel_eval to a worker pool, and sets up a scheduled supervisor process that scps the labelled data to the host.
+    * Supervisor will merge all newly generated board states and their corresponding labels.
+    * Supervisor will scp merged board states and labels to the host machine's training folder.
+    * Supervisor will then remove data on the client machine that was added to the batch of merged data.
+    * If scp failure. Retain data, and next batch of data to be appended to the queue. 
+    * Fail state(?) if repeated scp failure condition met, halt until connection successfully reestablished?
+   
 
 ### Long Term:
 * Chess 960 compatibility.
