@@ -26,7 +26,7 @@ Evaluation function coupled with alpha-beta search 3 moves deep results in flawe
 #### 1. Network architecture:
 * 256 x 20 like Leela? Pared-down?
 #### 2. Memory Usage:
-* Reencode board states. Predicted ~30% memory footprint of original encoding.
+* Reencode board states. Use int8.
     * h5py_file.create_dataset("boardStates", data=np.array(data, dtype='S')). Write labels as float to separate hdf5.
     * Use of h5df will also increase read and load speeds.
 #### 3. Training Scheduling:
@@ -34,10 +34,7 @@ Evaluation function coupled with alpha-beta search 3 moves deep results in flawe
     * Train for N epochs, update saved weights, and record size of training batch and network performance.
     * Schedule minimatch with Stockfish if there's time between batches?
     * Move processed board states and labels for archival storage.
-* Create a client process that submits both a parallel_eval to a worker pool, and sets up a scheduled supervisor process that scps the labelled data to the host.
-    * Supervisor will merge all newly generated board states and their corresponding labels.
-    * Supervisor will scp merged board states and labels to the host machine's training folder.
-    * Supervisor will then remove data on the client machine that was added to the batch of merged data.
+* Create a client supervisor process that creates a queue of jobs for a worker pool and write retrieved results to file. Supervisor will also scp the labeled data to the host every hour and remove the file once transferred.
     * If scp failure. Retain data, and next batch of data to be appended to the queue. 
     * Fail state(?) if repeated scp failure condition met, halt until connection successfully reestablished?
    
