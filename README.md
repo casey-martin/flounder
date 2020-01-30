@@ -39,14 +39,14 @@ Evaluation function coupled with alpha-beta search 3 moves deep results in flawe
     * Fail state(?) if repeated scp failure condition met, halt until connection successfully reestablished?
    
 
-### Long Term:
-* Chess 960 compatibility.
-  * I suspect that increasing the diversity of board states in the training data will help the network learn more generalizable policies.
+### Long Term Flounder:
 * Game tree search.
-  * Beta-pruning and MCTS implementation? Python performance will be a limiting factor. Cython implementation of python-chess? 
+  * Beta-pruning is very slow. Need efficient way of exploring the gametree and sending data to the gpu in large chunks.
+  * Initial breadth first search, followed by beta-pruning?
 * Amplification reinforcement
   * Train the evaluation function to approximate the output of the evaluation function coupled with a tree search.
 * UCI support (http://wbec-ridderkerk.nl/html/UCIProtocol.html)
+
 
 ## Sabatelli et. al.
 https://pdfs.semanticscholar.org/5171/32097f4de960f154185a8a8fec4178a15665.pdf  
@@ -57,5 +57,12 @@ https://github.com/paintception/DeepChess
   * Rescaled centipawn scale to 0:1, with 0 being a board position winning for black and 1 is a win for white.
   * Did not mention the centipawn value used for mate/mate-in-N.
 
-* Claim to have a centipawn error of 0.04, which does not correspond to its estimated FIDE ELO of ~2000.
+* Claim to have an evaluation error of 0.04 pawns, which does not correspond to its estimated FIDE ELO of ~2000.
+  * Is this the result of disproprotionate effect of the tails? Misevaluation of blunders, i.e. ruin from 'rare' events.
   * With mate==10000 centipawns, an MSE of 0.0016 is an 80 centipawn error which places its ELO estimation closer to 1600. (https://chess-db.com/public/research/qualityofplay.html)
+
+# Future Engines:
+* Movement policy output. Train from high quality engine play.
+* Create hash for position:{possible move vector} where each element (move) is a probability of choice.
+  * Weight by outcome of game and engine elo
+* Couple with board evaluation ala Flounder to make an alpha/leela-like network.
