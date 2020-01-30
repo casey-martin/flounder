@@ -10,12 +10,12 @@ Parallelism Tools:
 GNU-parallel (https://www.gnu.org/software/parallel/)
 
 ## Preliminary Findings:
-### Filter your training data:
-![Distribution of Stockfish evaluations from games between master-level players.](https://github.com/casey-martin/flounder/blob/master/figures/stockfish_eval_dist.png)  
+### Limitations and Modifications:
+I was unable to replicate the performance of Sabatelli et al's model, which was trained on 3M positions.
+* Flounder was trained on 20M positions. It had a learning rate of 0.001, nesterov momentum = 0.7, as per Sabatelli et al. Model had prohibitively low convergence.
+  * Increasing learning rate to 0.01 allowed for feasible training.
+* Downsampling to decrease the proportion of evenish positions resulted in greatly improved identification of extremely poor/good positions.
 
-* Increase evenness of the distribution of the training labels.
-  * Over the course of many games between two master-level players, >70% of moves will have roughly an even board position (  centipawn difference ~ 0). Training on this full dataset results in the network minimizing error by randomly guessing values around 0. Reducing the relative proportion of roughly equal positions mitigates this effect. However, this means we must throw out a majority of the training data for network initialization. 
-<br/><br/>
 ### Model performance after 250 epochs training (20M positions) on downsampled data.
 ![Initial network performance after fitting on downsampled training data.](https://github.com/casey-martin/flounder/blob/master/figures/cp-1360.ckpt.png)  
 <br/><br/>
