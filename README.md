@@ -1,6 +1,9 @@
 <img src="https://github.com/casey-martin/flounder/blob/master/figures/flounder.svg" alt="drawing" width="150">
 
-# Flounder
+# flounder:
+ 1. *(v) to proceed clumsily or ineffectually*
+ 2. *(n) a European, marine flatfish, Platichthys flesus, used for food.*
+ 
 Flounder is an artificial neural network (ANN) based chess evaluation tool. Like its piscine namesake, Flounder is a bottom feeder; it learns from positions labeled by an existing (and likely much better) chess engine. Given a particular board state, the model predicts the corresponding evaluation. The goal of this training schematic is to create an evaluation function that approximates the tree search of the engine that is training Flounder.
 
 Chess analysis engine used for generation of training data:
@@ -12,24 +15,22 @@ GNU-parallel (https://www.gnu.org/software/parallel/)
 ## Preliminary Findings:
 ### Limitations and Modifications:
 I was unable to replicate the performance of Sabatelli et al's model, which was trained on 3M positions.
-* Flounder was trained on 20M positions. It had a learning rate of 0.001, nesterov momentum = 0.7, as per Sabatelli et al. Model had prohibitively low convergence.
-  * Increasing learning rate to 0.01 allowed for feasible training.
-* Downsampling to decrease the proportion of evenish positions resulted in greatly improved identification of extremely poor/good positions.
+* Flounder was initially trained on 20M positions with a learning rate of 0.001, nesterov momentum = 0.7, as per  
+  Sabatelli et al. Model had prohibitively low convergence. 
+  * Increasing learning rate to 0.01 allowed for feasible training. 20M positions proved to be insufficient and
+    the training dataset was increased to ~500M positions.
+* Weighting the rarer and more extreme positions resulted in greatly improved performance.
 
-### Model performance after 250 epochs training (20M positions) on downsampled data.
-![Initial network performance after fitting on downsampled training data.](https://github.com/casey-martin/flounder/blob/master/figures/cp-1360.ckpt.png)  
-<br/><br/>
+### Model performance on unweighted validation data after weighted training.
+![alt text](https://github.com/casey-martin/flounder/blob/master/figures/sample_weight_effects.svg)
+
 Evaluation function coupled with alpha-beta search 3 moves deep results in flawed and highly aggressive play.
 
 ## TODO:
 ### High Priority:
-#### 1. Network architecture:
-* 256 x 20 like Leela? Pared-down?
-#### 2. Memory Usage:
-* Reencode board states. Use int8.
-    * h5py_file.create_dataset("boardStates", data=np.array(data, dtype='S')). Write labels as float to separate hdf5.
-    * Use of h5df will also increase read and load speeds.
-#### 3. Training Scheduling:
+#### 1. PyPy
+* install minimal packages via PyPy for increased game-tree search performance.
+#### 2. Training Scheduling:
 * Create a scheduled host process to check if training folder has been populated since last training run.
     * Train for N epochs, update saved weights, and record size of training batch and network performance.
     * Schedule minimatch with Stockfish if there's time between batches?
