@@ -3,117 +3,90 @@
 # my cuda/cudnn drivers and utilities are incompatible 
 # with current tf versions. Will update this script once I 
 # can find the courage to try and reinstall nvidia software.
-
-from pgn_splitter import numLines
-from sklearn.metrics import mean_squared_error
-from sklearn.model_selection import train_test_split
+from scipy.stats import rankdata
+from subprocess import call
 from tensorflow import keras
 from tensorflow.python.keras import layers
 from tensorflow.python.keras import backend as K
 import argparse
+import h5py
+import gc
 import numpy as np
 import os
-import pandas as pd
 import tensorflow as tf
+
+def mapping_to_target_range( x, target_min=-150, target_max=150 ) :
+    x02 = K.tanh(x) + 1 # x in range(0,2)
+    scale = ( target_max-target_min )/2.
+    return  x02 * scale + target_min
+
+
+def rescale(cp, maxCp = 150, minCp = -150):
+    centipawn_norm = np.clip(cp, minCp, maxCp) 
+    centipawn_norm = (centipawn_norm - minCp)/(maxCp - minCp)
+    return(centipawn_norm)
+
 
 def build_model():
     model = keras.Sequential()
-    model.add(layers.Dense(2048, activation='relu', input_shape=(769,)))
-    model.add(layers.Dropout(0.2))
-    model.add(layers.Dense(2048, activation=tf.nn.relu, input_shape=(769,)))
-    model.add(layers.Dropout(0.2))
-    model.add(layers.Dense(1050, activation=tf.nn.relu, input_shape=(769,)))
-    model.add(layers.Dropout(0.2))
-    model.add(layers.Dense(5))
+    model.add(layers.Dense(256, activation='relu', input_shape=(261,)))
+    model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(256, activation='relu'))
     model.add(layers.Dense(1))
-    #model.add(layers.Dense(1))
-    optimizer = tf.keras.optimizers.SGD(lr=0.001, momentum=0.7, nesterov=True)
+    optimizer = tf.keras.optimizers.SGD(lr=0.01, momentum=0.7, nesterov=True)
 
     model.compile(loss='mean_squared_error',
                   optimizer=optimizer,
-                  metrics=['mean_absolute_error', 'mean_squared_error'])
+                  metrics=['mean_absolute_error'])
     return(model)
 
        
-
-
-def stateVec2Mat(stateVec):
-
-    piece_id = [-6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6]
-    minCp = -10000
-    maxCp = 10000
-    
-    board = stateVec[:64]
-    whiteTurn = tf.reshape(tf.to_int32(stateVec[64]), [-1])
-    outMatrix = tf.concat([tf.to_int32(tf.equal(board,i)) for i in piece_id],axis=0)
-    outMatrix = tf.concat([outMatrix, whiteTurn], axis=0)
-    #univariate centipawn score.
-    
-    centipawn_norm = tf.reshape(tf.clip_by_value(stateVec[-1], minCp, maxCp), [-1])
-    centipawn_norm = (centipawn_norm - minCp)/(maxCp - minCp)
-     
-    return(outMatrix, centipawn_norm)
-
-
-
-def make_tld(csv_filename, header_lines, delim, buffer_size):
-    dataset = tf.data.TextLineDataset(filenames=csv_filename).skip(header_lines)
-
-    def parse_csv(line):
-        cols_types = [[]] * 66
-        columns = tf.decode_csv(line, record_defaults=cols_types, field_delim=delim)
-        return(stateVec2Mat(tf.stack(columns)))
-
-    dataset = dataset.map(parse_csv).batch(buffer_size)
-
-    return(dataset)
- 
-
-def tfdata_generator(csv_filename, header_lines, delim, batch_size, buffer_size, parallel_calls):
-    dataset = tf.data.TextLineDataset(filenames=csv_filename).skip(header_lines)
-
-    def parse_csv(line):
-        cols_types = [[]] * 66
-        columns = tf.decode_csv(line, record_defaults=cols_types, field_delim=delim)
-        return(stateVec2Mat(tf.stack(columns)))
-
-    dataset = dataset.map(parse_csv, num_parallel_calls=parallel_calls)
-    dataset = dataset.batch(batch_size)
-    dataset = dataset.repeat()
-    dataset = dataset.prefetch(buffer_size=buffer_size)
-    iterator = dataset.make_one_shot_iterator()
-
-    next_batch = iterator.get_next()
-    # https://stackoverflow.com/questions/46135499/how-to-properly-combine-tensorflows-dataset-api-and-keras
-    while True:
-        yield K.get_session().run(next_batch)
-    
-    #return(dataset)
-     
 parser = argparse.ArgumentParser()
-parser.add_argument('--train_data', type=str, help='Input training data')
-parser.add_argument('--test_data', type=str, help='Input validation data')
-parser.add_argument('--outdir', type=str, help='Directory where network weights will be saved.')
-parser.add_argument('--epochs', type=int, help='Number of epochs the model will be trained for.')
+parser.add_argument('--train_folder', type=str, help='Input training data')
+parser.add_argument('--test_data', type=str, required=True, help='Input validation data')
+parser.add_argument('--outdir', type=str, required=True,  help='Directory where network weights will be saved.')
+parser.add_argument('--epochs', type=int, default=10, help='Number of epochs the model will be trained for.')
 parser.add_argument('--period', type=int, help='Periodicity of the checkpoint saves.')
 parser.add_argument('--weights', type=str, default = None,
                        help='Path to pretrained weights. Omit flag if making a new model. Default=None')
 parser.add_argument('--batch_size', type=int, default=256, help='Training batch size. Default=256')
 parser.add_argument('--buffer_size', type=int, default=5620, help='Prefetch buffer size. Default=2560')
-parser.add_argument('--verbose', type=int, default=2, help='0: silent; 1: verbose output; 2: Goldilocks. Default=2')
-parser.add_argument('--parallel_calls', type=int, default=2, help='Number of cores devoted to data preprocessing. Default=2')
+parser.add_argument('--verbose', type=int, default=1, help='0: silent; 1: verbose output; 2: Goldilocks. Default=2')
 
 args = parser.parse_args()
+print('Reading training data...')
+myFiles = os.listdir(args.train_folder)
+obsCount = 0
+for hfName in myFiles:
+    hfFullPath = os.path.join(args.train_folder, hfName)
 
+    with h5py.File(hfFullPath) as hf:
+       for i in hf['labels'].keys():
+            obsCount += hf['labels'][i][()].shape[0]
+    
+print('Found', obsCount, 'training examples.\n')
 
-dataset = tfdata_generator(csv_filename=args.train_data, header_lines=0, delim=',', batch_size=args.batch_size,
-                           buffer_size=args.buffer_size, parallel_calls=args.parallel_calls)
+testX = []
+testY = []
+with h5py.File(args.test_data) as hf:
+    for i in hf['labels'].keys():
+        tmpX = np.array(hf['boardStates'][i][()])
+        tmpY = np.array(hf['labels'][i][()])
+        
+        testX.append(tmpX)
+        testY.append(tmpY)
 
-testset = tfdata_generator(csv_filename=args.test_data, header_lines=0, delim=',', batch_size=args.batch_size,
-                           buffer_size=args.buffer_size, parallel_calls=args.parallel_calls)
+testX = np.concatenate(testX).astype('bool')
+testY = rescale(np.concatenate(testY).astype(np.float32))
 
-trainingSize = numLines(args.train_data)
-testSize = numLines(args.test_data)
+print('Found', len(testX), 'test examples.\n\n\n')
 
 if args.weights is None:
     model = build_model()
@@ -130,13 +103,34 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(
     # Save weights, every epoch.
     period=args.period)
 
+csv_logger = tf.keras.callbacks.CSVLogger(args.outdir + "model_history_log.csv", append=True)
 
-model.fit_generator(
-  dataset,
-  validation_data=testset,
-  workers=0,
-  steps_per_epoch=trainingSize // args.batch_size,
-  validation_steps=testSize // args.batch_size,
-  epochs=args.epochs, 
-  verbose=args.verbose,
-  callbacks = [cp_callback])
+for i in range(args.epochs):
+    for fileCount, hfName in enumerate(myFiles):
+        hfFullPath = os.path.join(args.train_folder, hfName)
+        with h5py.File(hfFullPath) as hf:
+            for i in hf['labels'].keys():
+                tmpBoardStates = hf['boardStates'][i][()]
+                tmpLabels = hf['labels'][i][()]
+
+                # give more importance to extreme positions because they are more rare.
+                # weights might need to be integer values. When passing floats, got nans during training.
+                tmpSampleWeights = rankdata(np.abs(tmpLabels))/len(tmpLabels)
+                tmpSampleWeights = np.round(np.log(tmpSampleWeights/np.min(tmpSampleWeights))) + 1
+#                tmpSampleWeights = np.ones(len(tmpLabels))
+                tmpLabels = rescale(tmpLabels)
+                   
+                model.fit(
+                  x = tmpBoardStates, y = tmpLabels,
+                  validation_data = (testX, testY),
+                  sample_weight = tmpSampleWeights,
+                  batch_size = args.batch_size,
+                  epochs=1, 
+                  verbose=args.verbose,
+                  callbacks = [csv_logger])
+
+                with open(os.path.join(args.outdir, 'batch_length.txt'), 'a+') as f:
+                    f.write(str(len(tmpLabels)/float(obsCount)) + '\n')
+ 
+    print('Epoch', i+1, 'of', args.epochs, 'complete. Saving model.')
+    model.save_weights(os.path.join(args.outdir, "model.h5"))
