@@ -129,8 +129,10 @@ for i in range(args.epochs):
                   verbose=args.verbose,
                   callbacks = [csv_logger])
 
-                with open(os.path.join(args.outdir, 'batch_length.txt'), 'a+') as f:
-                    f.write(str(len(tmpLabels)/float(obsCount)) + '\n')
- 
+                try:
+                    with open(os.path.join(args.outdir, 'batch_length.txt'), 'a+') as f:
+                        f.write(str( len(tmpLabels)/float(obsCount) ) + '\n')
+                except Exception:
+                    print('Error writing to file!') 
     print('Epoch', i+1, 'of', args.epochs, 'complete. Saving model.')
     model.save_weights(os.path.join(args.outdir, "model.h5"))
