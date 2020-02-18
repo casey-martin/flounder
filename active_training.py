@@ -220,9 +220,10 @@ parser.add_argument('--ann', type=str, required=True, help='Path to ANN evaluato
 parser.add_argument('--teacher', type=str, default='/usr/bin/stockfish/',  help='Path to conventional chess engine.')
 parser.add_argument('--depth_2', type=int, default=5, help='Search depth for conventional chess engine.')
 parser.add_argument('--dilution', type=float, default=0.8, help='Relative engine strength. Use 1 for no random moves.')
-parser.add_argument('--rounds', type=int, default=10, help='Results in 2N number of games where N is number of rounds.')
-parser.add_argument('--iters', type=int, default=5, help='Number of rounds of training')
-parser.add_argument('--epochs', type=int, default=40, help='Number of epochs during fitting.')
+parser.add_argument('--rounds', type=int, default=20, help='Results in 2N number of games where N is number of rounds.')
+parser.add_argument('--iters', type=int, default=10, help='Number of rounds of training')
+parser.add_argument('--epochs', type=int, default=50, help='Number of epochs during fitting.')
+parser.add_argument('--batch_size', type=int, default=128)
 parser.add_argument('--test_set', type=str, required=True, help='Path to validation data.')
 parser.add_argument('--outdir', type=str, required=True)
 
@@ -231,24 +232,23 @@ parser.add_argument('--outdir', type=str, required=True)
 args = parser.parse_args()
 
 def main():
-    outName = path.join(args.outdir, datetime.now().strftime("%d_%m_%Y__%H_%M_%S") + '.hf')
-
     ann = build_model()
-    ann.load_weights(args.model_1)
-    teacher= chess.engine.SimpleEngine.popen_uci(args.model_2)
+    ann.load_weights(args.ann)
+    teacher= chess.engine.SimpleEngine.popen_uci(args.teacher)
     limit = chess.engine.Limit(depth=args.depth_2)
     testX = []
     testY = []
     with h5py.File(args.test_set) as hf:
         for i in hf['labels'].keys():
-            tmpX = np.array(hf['boardStates'][i][()]
+            tmpX = np.array(hf['boardStates'][i][()])
             tmpY = np.array(hf['labels'][i][()])
             
             testX.append(tmpX)
             testY.append(tmpY)
 
     testX = np.concatenate(testX)
-    testY = np.concatenate(testY)    
+    testY = np.concatenate(testY)
+    testY = rescale(testY)
 
     for j in range(args.iters):
         boardStates, labels, gameResults  = trainRounds(ann, teacher, limit, args.rounds, args.dilution)
@@ -261,7 +261,8 @@ def main():
                 epochs=args.epochs,
                 verbose=2,
                 shuffle=True)
+        ann.save_weights(os.path.join(outdir, "model_" + datetime.now().strftime("%d_%m_%Y__%H_%M_%S") + '.h5'))
 
-if == '__main__':
+if __name__  == '__main__':
     main()
 
