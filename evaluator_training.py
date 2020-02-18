@@ -47,7 +47,76 @@ def build_model():
                   metrics=['mean_absolute_error'])
     return(model)
 
+
+class Trainer:
+    def __init__(self, model, train_folder, test_data, batch_size):
+        self.model = model
+        self.train_folder = train_folder
+        self.test_data = test_data
+        self.batch_size = batch_size
+        self.train_list = self.count_training()
+        self.testX, self.testY = self.get_validation()
+
+    def count_training(self):
+        myFiles = os.listdir(self.train_folder)
+        obsCount = 0
+        train_list = []
+
+        for hfName in myFiles:
+            hfFullPath = os.path.join(self.train_folder, hfName)
+            with h5py.File(hfFullPath) as hf:
+
+               for i in hf['labels'].keys():
+                    obsCount += hf['labels'][i][()].shape[0]
+                    train_list.append((hfFullPath, i))
+        self.obsCount = obsCount                    
+        return(train_list)
+
+    def get_validation(self):
+        testX = []
+        testY = []
+        with h5py.File(args.test_data) as hf:
+            for i in hf['labels'].keys():
+                tmpX = np.array(hf['boardStates'][i][()])
+                tmpY = np.array(hf['labels'][i][()])
+                
+                testX.append(tmpX)
+                testY.append(tmpY)
+
+        testX = np.concatenate(testX).astype('bool')
+        testY = rescale(np.concatenate(testY).astype(np.float32))
+
+        return(testX, testY)
+
+    def shuffle_order(self):
+        np.random.shuffle(self.train_list)
        
+    def fit_to_training(self):
+        for myhf, mykey in self.train_list:
+            with h5py.File(myhf) as hf:
+                print(myhf, mykey)
+                tmpBoardStates = hf['boardStates'][mykey][()]
+                tmpLabels = hf['labels'][mykey][()]
+                # give more importance to extreme positions because they are more rare.
+                # weights might need to be integer values. When passing floats, got nans during training.
+                tmpSampleWeights = rankdata(np.abs(tmpLabels))/len(tmpLabels)
+                tmpSampleWeights = np.round(np.log(tmpSampleWeights/np.min(tmpSampleWeights))) + 1
+                tmpLabels = rescale(tmpLabels)
+                with open(os.path.join(args.outdir, 'batch_length.txt'), 'a+') as f:
+                    f.write(str( len(tmpLabels)/float(self.obsCount) ) + '\n')
+            
+                self.model.fit(
+                  x = tmpBoardStates, y = tmpLabels,
+                  validation_data = (self.testX, self.testY),
+                  sample_weight = tmpSampleWeights,
+                  batch_size = self.batch_size,
+                  epochs=1, 
+                  verbose=args.verbose,
+                  callbacks = [csv_logger],
+                  shuffle = True)
+
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--train_folder', type=str, help='Input training data')
 parser.add_argument('--test_data', type=str, required=True, help='Input validation data')
@@ -61,32 +130,6 @@ parser.add_argument('--buffer_size', type=int, default=5620, help='Prefetch buff
 parser.add_argument('--verbose', type=int, default=1, help='0: silent; 1: verbose output; 2: Goldilocks. Default=2')
 
 args = parser.parse_args()
-print('Reading training data...')
-myFiles = os.listdir(args.train_folder)
-obsCount = 0
-for hfName in myFiles:
-    hfFullPath = os.path.join(args.train_folder, hfName)
-
-    with h5py.File(hfFullPath) as hf:
-       for i in hf['labels'].keys():
-            obsCount += hf['labels'][i][()].shape[0]
-    
-print('Found', obsCount, 'training examples.\n')
-
-testX = []
-testY = []
-with h5py.File(args.test_data) as hf:
-    for i in hf['labels'].keys():
-        tmpX = np.array(hf['boardStates'][i][()])
-        tmpY = np.array(hf['labels'][i][()])
-        
-        testX.append(tmpX)
-        testY.append(tmpY)
-
-testX = np.concatenate(testX).astype('bool')
-testY = rescale(np.concatenate(testY).astype(np.float32))
-
-print('Found', len(testX), 'test examples.\n\n\n')
 
 if args.weights is None:
     model = build_model()
@@ -105,34 +148,20 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(
 
 csv_logger = tf.keras.callbacks.CSVLogger(args.outdir + "model_history_log.csv", append=True)
 
+
+print('Reading training data...')
+myTrainer = Trainer(model, args.train_folder, args.test_data, args.batch_size)
+
+print('Found', myTrainer.obsCount, 'training examples.\n')
+
+print('Found', myTrainer.testY.shape[0], 'test examples.\n\n\n')
+
+
 for i in range(args.epochs):
-    for fileCount, hfName in enumerate(myFiles):
-        hfFullPath = os.path.join(args.train_folder, hfName)
-        with h5py.File(hfFullPath) as hf:
-            for i in hf['labels'].keys():
-                tmpBoardStates = hf['boardStates'][i][()]
-                tmpLabels = hf['labels'][i][()]
 
-                # give more importance to extreme positions because they are more rare.
-                # weights might need to be integer values. When passing floats, got nans during training.
-                tmpSampleWeights = rankdata(np.abs(tmpLabels))/len(tmpLabels)
-                tmpSampleWeights = np.round(np.log(tmpSampleWeights/np.min(tmpSampleWeights))) + 1
-#                tmpSampleWeights = np.ones(len(tmpLabels))
-                tmpLabels = rescale(tmpLabels)
-                   
-                model.fit(
-                  x = tmpBoardStates, y = tmpLabels,
-                  validation_data = (testX, testY),
-                  sample_weight = tmpSampleWeights,
-                  batch_size = args.batch_size,
-                  epochs=1, 
-                  verbose=args.verbose,
-                  callbacks = [csv_logger])
-
-                try:
-                    with open(os.path.join(args.outdir, 'batch_length.txt'), 'a+') as f:
-                        f.write(str( len(tmpLabels)/float(obsCount) ) + '\n')
-                except Exception:
-                    print('Error writing to file!') 
+    myTrainer.shuffle_order()
+    myTrainer.fit_to_training()
     print('Epoch', i+1, 'of', args.epochs, 'complete. Saving model.')
-    model.save_weights(os.path.join(args.outdir, "model.h5"))
+    myTrainer.model.save_weights(os.path.join(args.outdir, "model.h5"))
+
+
