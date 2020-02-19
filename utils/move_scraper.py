@@ -99,7 +99,7 @@ def board2Vec(board):
 
     mybitBoard = np.concatenate(mybitBoard)
 
-    return(mybitBoard)
+    return(mybitBoard.astype('bool'))
 
 
 parser = argparse.ArgumentParser()
@@ -135,9 +135,10 @@ def main():
 
             if len(myevalList) > args.chunksize:
                 with h5py.File(outName) as hf:
-
-                    hf['boardStates'].create_dataset('_' + str(i),  data = np.array(boardStates).astype('bool'), compression='gzip')
-                    hf['labels'].create_dataset('_' + str(i), data = np.array(myevalList).astype('bool'), compression='gzip')
+                    boardStates = np.array(boardStates).astype('bool')
+                    myevalList =  np.array(myevalList).astype('bool')
+                    hf['boardStates'].create_dataset('_' + str(i),  data = boardStates, compression='gzip')
+                    hf['labels'].create_dataset('_' + str(i), data = myevalList, compression='gzip')
     
                 boardStates = []
                 myevalList = []
@@ -146,9 +147,11 @@ def main():
             if i == databaseSize-1:
                 with h5py.File(outName) as hf:
 
-                    hf['boardStates'].create_dataset('_' + str(i),  data = np.array(boardStates).astype('bool'), compression='gzip')
-                    hf['labels'].create_dataset('_' + str(i), data = np.array(myevalList).astype(np.float32), compression='gzip')
-    
+                    boardStates = np.array(boardStates).astype('bool')
+                    myevalList =  np.array(myevalList).astype('bool')
+                    hf['boardStates'].create_dataset('_' + str(i),  data = boardStates, compression='gzip')
+                    hf['labels'].create_dataset('_' + str(i), data = myevalList, compression='gzip')
+   
                 boardStates = []
                 myevalList = []
                 gc.collect()
