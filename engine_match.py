@@ -321,7 +321,6 @@ def game(board, model_1, model_2, limit):
         ply(board,model_1, model_2, limit)
 
 def main():
-    K.set_session(K.tf.Session(config=K.tf.ConfigProto(intra_op_parallelism_threads=16, inter_op_parallelism_threads=16)))
 
 
     model_1 = build_model()
