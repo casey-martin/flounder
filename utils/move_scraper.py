@@ -38,8 +38,10 @@ def scrapeGame(game):
                 boardStates.append(board2Vec(board))
                 labels.append(move2Vec(str(move)))
                 board.push(move)
+                moveCount += 1
             else:
                 board.push(move)
+                moveCount += 1
 
     # get labels for black
     elif gameResult == '0-1':
@@ -49,8 +51,10 @@ def scrapeGame(game):
                 boardStates.append(board2Vec(board))
                 labels.append(move2Vec(str(move)))
                 board.push(move)
+                moveCount += 1
             else:
                 board.push(move)
+                moveCount += 1
 
     # get labels for both
     else:
