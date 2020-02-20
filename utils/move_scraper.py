@@ -1,4 +1,5 @@
 from tqdm import tqdm
+from policy import move2Vec
 import argparse
 import chess.pgn
 import gc
@@ -22,55 +23,44 @@ def numGames(pgn):
 
     return(hits)
 
-def checkEval(comment):
-    commentChunks = comment.split()
-    myEvalIndex = commentChunks.index('[%eval') + 1
 
-    return(commentChunks[myEvalIndex][:-1])
+def scrapeGame(game):
 
-def cleanEval(myEval, mate):
-    if myEval[0] == '#':
-        myEval = float(myEval[1:])
-        # adjust for black or white winning
-        if myEval > 0:
-            myEval = mate - myEval
-        else:
-            myEval = -mate - myEval
-        return(myEval)
+    board = game.board()
+    gameResult = game.headers['Result'] 
+    boardStates = []
+    labels = []
+    # get labels for white
+    if gameResult == '1-0':
+        moveCount = 0
+        for move in game.mainline_moves():
+            if moveCount % 2 == 0:
+                boardStates.append(board2Vec(board))
+                labels.append(move2Vec(str(move)))
+                board.push(move)
+            else:
+                board.push(move)
+
+    # get labels for black
+    elif gameResult == '0-1':
+        moveCount = 0
+        for move in game.mainline_moves():
+            if moveCount % 2 == 1:
+                boardStates.append(board2Vec(board))
+                labels.append(move2Vec(str(move)))
+                board.push(move)
+            else:
+                board.push(move)
+
+    # get labels for both
     else:
-        return(float(myEval))
+        for move in game.mainline_moves():
+            boardStates.append(board2Vec(board))
+            labels.append(move2Vec(str(move)))
+            board.push(move)
 
-
-def scrapeGame(game, mate=150):
+    return(boardStates, labels)
     
-
-    mycomments = [i.comment for i in game.mainline()]
-    # check if game is annotated
-    if len(mycomments) > 0:
-        if '[%eval' in mycomments[0]:
-            myevals = []
-            boardStates = []
-            board = game.board()
-            mymoves = [i for i in game.mainline_moves()] 
-            for comment, move in zip(mycomments, game.mainline_moves()):
-                try:
-                    board.push(move)
-                except ValueError:
-                    return
-                try:
-                    tmpEval = checkEval(comment)
-                    tmpEval = cleanEval(tmpEval, mate)
-                    myevals.append(tmpEval)
-                    boardStates.append(board2Vec(board))
-                except ValueError:
-                    continue
-
-            
-            return(boardStates, myevals)
-
-    else:
-        return
-
 
 
 def board2Vec(board):
@@ -109,15 +99,14 @@ def board2Vec(board):
 
     mybitBoard = np.concatenate(mybitBoard)
 
-    return(mybitBoard)
+    return(mybitBoard.astype('bool'))
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--pgn', type=str, required=True, help='''input pgn for evaluation extraction.''')
 parser.add_argument('--outdir', type=str, required=True, help='''destination for output files.''')
-parser.add_argument('--chunksize', type=float, default=20e6, help='''number of positions to be output in each chunk.
+parser.add_argument('--chunksize', type=float, default=5e6, help='''number of positions to be output in each chunk.
                                                                      scientific notation is supported.''')
-parser.add_argument('--matevalue', type=float, default=150, help='''absolute value of checkmate.''')
 args = parser.parse_args()
 
 def main():
@@ -136,7 +125,7 @@ def main():
         for i in tqdm(range(databaseSize),ncols=75, dynamic_ncols=True):
         
             mygame = chess.pgn.read_game(f)
-            myevals = scrapeGame(mygame, mate=args.matevalue)
+            myevals = scrapeGame(mygame)
             totalCount += 1
 
             if myevals is not None:
@@ -146,9 +135,10 @@ def main():
 
             if len(myevalList) > args.chunksize:
                 with h5py.File(outName) as hf:
-
-                    hf['boardStates'].create_dataset('_' + str(i),  data = np.array(boardStates).astype('bool'), compression='gzip')
-                    hf['labels'].create_dataset('_' + str(i), data = np.array(myevalList).astype(np.float32), compression='gzip')
+                    boardStates = np.array(boardStates).astype('bool')
+                    myevalList =  np.array(myevalList).astype('bool')
+                    hf['boardStates'].create_dataset('_' + str(i),  data = boardStates, compression='gzip')
+                    hf['labels'].create_dataset('_' + str(i), data = myevalList, compression='gzip')
     
                 boardStates = []
                 myevalList = []
@@ -157,9 +147,11 @@ def main():
             if i == databaseSize-1:
                 with h5py.File(outName) as hf:
 
-                    hf['boardStates'].create_dataset('_' + str(i),  data = np.array(boardStates).astype('bool'), compression='gzip')
-                    hf['labels'].create_dataset('_' + str(i), data = np.array(myevalList).astype(np.float32), compression='gzip')
-    
+                    boardStates = np.array(boardStates).astype('bool')
+                    myevalList =  np.array(myevalList).astype('bool')
+                    hf['boardStates'].create_dataset('_' + str(i),  data = boardStates, compression='gzip')
+                    hf['labels'].create_dataset('_' + str(i), data = myevalList, compression='gzip')
+   
                 boardStates = []
                 myevalList = []
                 gc.collect()
