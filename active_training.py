@@ -38,12 +38,11 @@ def build_model():
     model.add(layers.Dense(256, activation='relu'))
     model.add(layers.Dense(256, activation='relu'))
 
-    model.add(layers.Dense(1))
+    model.add(layers.Dense(1858, activation='relu'))
     optimizer = tf.keras.optimizers.SGD(lr=0.01, momentum=0.7, nesterov=True)
 
-    model.compile(loss='mean_squared_error',
-                  optimizer=optimizer,
-                  metrics=['mean_absolute_error'])
+    model.compile(loss='categorical_crossentropy',
+                  optimizer=optimizer])
     return(model)
 
 
@@ -114,52 +113,58 @@ def game(board, ann, teacher, limit, killGame = 100, dilution=0.5, annWhite=True
                 tmpBoardStates, tmpLabels = teacherEvalPositions(board, teacher, limit)
                 boardStates += tmpBoardStates
                 labels += tmpLabels
-            except TypeError:
+
+                annPly(board, ann)
+                
+                # teacher evals 
+                if board.result() == '*':            
+                    tmpBoardStates, tmpLabels = teacherEvalPositions(board, teacher, limit)
+                    boardStates += tmpBoardStates
+                    labels += tmpLabels
+
+                # random teacher move
+                if np.random.uniform(0,1) > dilution:
+                    legalMoves = [move for move in board.legal_moves]
+                    randomMove = np.random.choice(legalMoves)
+                    board.push(randomMove)
+                else:
+                    teacherPly(board, teacher, limit)
+     
+                turnCount += 1        
+                if turnCount > killGame:
+                    break
+     
+
+            except:
                 break
 
-            annPly(board, ann)
-            if board.result() == '*':            
-                tmpBoardStates, tmpLabels = teacherEvalPositions(board, teacher, limit)
-                boardStates += tmpBoardStates
-                labels += tmpLabels
-
-            if np.random.uniform(0,1) > dilution:
-                legalMoves = [move for move in board.legal_moves]
-                randomMove = np.random.choice(legalMoves)
-                board.push(randomMove)
-            else:
-                teacherPly(board, teacher, limit)
- 
-            turnCount += 1        
-            if turnCount > killGame:
-                break
     else:
         while board.result() == '*':
             try:
                 tmpBoardStates, tmpLabels = teacherEvalPositions(board, teacher, limit)
                 boardStates += tmpBoardStates
                 labels += tmpLabels
+                if np.random.uniform(0,1) > dilution:
+                    legalMoves = [move for move in board.legal_moves]
+                    randomMove = np.random.choice(legalMoves)
+                    board.push(randomMove)
+                else:
+                    teacherPly(board, teacher, limit)
+                if board.result() == '*':
+                    tmpBoardStates, tmpLabels = teacherEvalPositions(board, teacher, limit)
+                    boardStates += tmpBoardStates
+                    labels += tmpLabels
 
-            except TypeError:
+
+                annPly(board, ann)
+                turnCount += 1        
+                if turnCount > killGame:
+                    break
+
+            except:
                 break
 
-            if np.random.uniform(0,1) > dilution:
-                legalMoves = [move for move in board.legal_moves]
-                randomMove = np.random.choice(legalMoves)
-                board.push(randomMove)
-            else:
-                teacherPly(board, teacher, limit)
-
-            annPly(board, ann)
-            if board.result() == '*':
-                tmpBoardStates, tmpLabels = teacherEvalPositions(board, teacher, limit)
-                boardStates += tmpBoardStates
-                labels += tmpLabels
-
-            turnCount += 1        
-            if turnCount > killGame:
-                break
-
+            
     return(boardStates, labels)
 
 
@@ -220,9 +225,9 @@ parser.add_argument('--ann', type=str, required=True, help='Path to ANN evaluato
 parser.add_argument('--teacher', type=str, default='/usr/bin/stockfish/',  help='Path to conventional chess engine.')
 parser.add_argument('--depth_2', type=int, default=5, help='Search depth for conventional chess engine.')
 parser.add_argument('--dilution', type=float, default=0.8, help='Relative engine strength. Use 1 for no random moves.')
-parser.add_argument('--rounds', type=int, default=20, help='Results in 2N number of games where N is number of rounds.')
+parser.add_argument('--rounds', type=int, default=80, help='Results in 2N number of games where N is number of rounds.')
 parser.add_argument('--iters', type=int, default=10, help='Number of rounds of training')
-parser.add_argument('--epochs', type=int, default=50, help='Number of epochs during fitting.')
+parser.add_argument('--epochs', type=int, default=2, help='Number of epochs during fitting.')
 parser.add_argument('--batch_size', type=int, default=128)
 parser.add_argument('--test_set', type=str, required=True, help='Path to validation data.')
 parser.add_argument('--outdir', type=str, required=True)
@@ -261,7 +266,7 @@ def main():
                 epochs=args.epochs,
                 verbose=2,
                 shuffle=True)
-        ann.save_weights(os.path.join(outdir, "model_" + datetime.now().strftime("%d_%m_%Y__%H_%M_%S") + '.h5'))
+        ann.save_weights(os.path.join(args.outdir, "model_" + datetime.now().strftime("%d_%m_%Y__%H_%M_%S") + '.h5'))
 
 if __name__  == '__main__':
     main()

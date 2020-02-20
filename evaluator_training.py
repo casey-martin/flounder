@@ -39,8 +39,19 @@ def build_model():
     model.add(layers.Dense(256, activation='relu'))
     model.add(layers.Dense(256, activation='relu'))
     model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(256, activation='relu'))
+
     model.add(layers.Dense(1))
-    optimizer = tf.keras.optimizers.SGD(lr=0.01, momentum=0.7, nesterov=True)
+    optimizer = tf.keras.optimizers.SGD(lr=0.005, momentum=0.7, nesterov=True)
 
     model.compile(loss='mean_squared_error',
                   optimizer=optimizer,
