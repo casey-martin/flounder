@@ -2,7 +2,7 @@ from sfGlobal import *
 '''TODO:
 - pieceValueMg
     
-- psqtMg
+- p_sqtMg
 - pieceValueMg
 - psqtMg
 - imbalanceTotal
@@ -45,12 +45,19 @@ def middleGameEvaluation(pos, noInitiative):
     v += piecesMg(pos) - piecesMg(colorflip(pos))
     v += mobilityMg(pos) - mobilityMg(colorflip(pos))
     v += threatsMg(pos) - threatsMg(colorflip(pos))
-    '''v += passedMg(pos) - passedMg(colorflip(pos))
+    v += passedMg(pos) - passedMg(colorflip(pos))
     v += space(pos) - space(colorflip(pos))
     v += kingMg(pos) - kingMg(colorflip(pos))
-    if !noInitiative:
-        v += initiativeTotalMg(pos, v)'''
+    if not noInitiative:
+        v += initiativeTotalMg(pos, v)
     return(v)
+
+def endGameEvaluation(pos, noInitiative):
+    v += pieceValueEg(pos) - pieceValueEg(colorflip(pos))
+    v += psqtEg(pos) - psqtEg(colorflip(pos))
+    v += imbalanceTotal(pos)
+    v += pawnsEg(pos) - pawnsEg(colorflip(pos))
+
 
 ##### Pawns #####
 def pawnsMg(pos, square=None):
@@ -66,6 +73,22 @@ def pawnsMg(pos, square=None):
     if connected(pos, square):
         v += connectedBonus(pos, square)
     v -= 13 * weakUnopposedPawn(pos, square)
+    return(v)
+
+def pawnsEg(pos, square=None):
+    if square == None:
+        return(sfSum(pos, pawnsEg))
+    v = 0
+    if isolated(pos, square):
+        v -= 15
+    elif backward(pos, square):
+        v -= 24
+    if doubled(pos, square):
+        v -= 56
+    if connected(pos, square):
+        v += connectedBonus(pos,square) * (rank(pos, square) - 3) // 4 << 0
+    v -= 27 * weakUnopposedPawn(pos, square)
+    v -= 56 * weakLever(pos, square)
     return(v)
 
 def isolated(pos, square=None):
@@ -172,6 +195,23 @@ def weakUnopposedPawn(pos, square=None):
     elif backward(pos, square):
         v += 1
     return(v)
+
+def weakLever(pos, square=None):
+    if square == None:
+        return(sfSum(pos, weakLever))
+    if sfBoard(pos, square[0], square[1]) != "P":
+        return(0)
+    if sfBoard(pos, square[0] - 1, square[1] - 1) != "p":
+        return(0)
+    if sfBoard(pos, square[0] + 1, square[1] - 1) != "p":
+        return(0)
+    if sfBoard(pos, square[0] - 1, square[1] + 1) == "P":
+        return(0)
+    if sfBoard(pos, square[0] + 1, square[1] + 1) == "P":
+        return(0)
+    return(1)
+
+
 
 ##### Pieces #####
 def piecesMg(pos, square=None):
@@ -754,6 +794,339 @@ def initiativeTotalMg(pos, v=None):
 
 
 ##### King #####
+def pawnlessFlank(pos):
+    pawns = [0,0,0,0,0,0,0,0]
+    kx = 0
+    for x in range(8):
+        for y in range(8):
+            if sfBoard(pos, x, y).upper() == "P":
+                pawns[x] += 1
+            if sfBoard(pos, x, y) == "k":
+                kx = x
+    mySum = 0
+    if kx == 0:
+        mySum = pawns[0] + pawns[1] + pawns[2]
+    elif kx < 3:
+        mySum =  pawns[0] + pawns[1] + pawns[2] + pawns[3]
+    elif kx < 5:
+        mySum = pawns[2] + pawns[3] + pawns[4] + pawns[5]
+    elif kx < 7:
+        mySum = pawns[4] + pawns[5] + pawns[6] + pawns[7]
+    else:
+        mySum = pawns[5] + pawns[6] + pawns[7]
+    return(mySum == 0)
+
+def strengthSquare(pos, square=None):
+    if square == None:
+        return(sfSum(pos, strengthSquare))
+    v = 5
+    kx = min(6, max(1, square[0]))
+    weakness = [[-6,81,93,58,39,18,25],
+      [-43,61,35,-49,-29,-11,-63],
+      [-10,75,23,-2,32,3,-45],
+      [-39,-13,-29,-52,-48,-67,-166]]
+    for x in range(kx-1, kx+2):
+        us = 0
+        for y in range(7, square[1]-1, -1):
+            if sfBoard(pos, x, y) == "p":
+                us = y
+        f = min(x, 7-x)
+        v += weakness[f][us] or 0
+    return(v)
+
+def stormSquare(pos, square=None, eg=False):
+    if square == None:
+        return(sfSum(pos, stormSquare))
+    v = 0
+    ev = 5
+    kx = min(6, max(1, square[0]))
+    unblockedstorm = [
+        [85,-289,-166,97,50,45,50],
+        [46,-25,122,45,37,-10,20],
+        [-6,51,168,34,-2,-22,-14],
+        [-15,-11,101,4,11,-15,-29]]
+    for x in range(kx-1,kx+2):
+        us = 0
+        them = 0
+        for y in range(7, square[1]-1, -1):
+            if sfBoard(pos, x, y) == "p":
+                us = y
+            if sfBoard(pos, x, y) == "P":
+                them = y
+        f = min(x, 7-x)
+        if us > 0 and them == us + 1:
+            v += 82 * (them == 2)
+            ev += 82 * (them == 2)
+        else:
+            v += unblockedstorm[f][them]
+    if eg:
+        return(ev)
+    else:
+        return(v)
+
+def shelterStrength(pos, square=None):
+    w = 0
+    s = 1024
+    tx = None
+    for x in range(8):
+        for y in range(8):
+            if (sfBoard(pos, x, y) == "k" or
+              pos['c'][2] and x == 6 and y == 0 or
+              pos['c'][3] and x == 2 and y == 0):
+                w1 = strengthSquare(pos, (x, y))
+                s1 = stormSquare(pos, (x,y))
+                if s1 - w1 < s - w:
+                    w = w1
+                    s = s1
+                    tx = max(1, min(6,x))
+    if square == None:
+        return(w)
+    if (tx != None and sfBoard(pos, square[0], square[1]) == "p" and 
+      square[0] >= tx-1 and square[0] <= tx+1):
+        for y in range(square[1]-1, -1, -1):
+            if sfBoard(pos, square[0], y) == "p":
+                return(0)
+        return(1)
+    return(0)
+
+def shelterStorm(pos, square=None):
+    w = 0 
+    s = 1024
+    tx = None
+    for x in range(8):
+        for y in range(8):
+            if (sfBoard(pos, x, y) == "k" or
+              pos['c'][2] and x == 6 and y == 0 or
+              pos['c'][3] and x == 2 and y == 0):
+                w1 = strengthSquare(pos, (x, y))
+                s1 = stormSquare(pos, (x,y))
+                if s1 - w1 < s - w:
+                    w = w1
+                    s = s1
+                    tx = max(1, min(6,x))
+    if square == None:
+        return(s)
+    if (tx != None and sfBoard(pos, square[0], square[1]).upper() == "P" and 
+      square[0] >= tx-1 and square[0] <= tx+1):
+        for y in range(square[1]-1, -1, -1):
+            if sfBoard(pos, square[0], y) == sfBoard(pos, square[0], square[1]):
+                return(1)
+    return(0)
+        
+def kingPawnDistance(pos, square=None):
+    v = 8
+    kx = 0
+    ky = 0
+    px = 0
+    py = 0
+    for x in range(8):
+        for y in range(8):
+            if sfBoard(pos, x, y) == "K":
+                kx = x
+                ky = y
+    for x in range(8):
+        for y in range(8):
+            dist = max(abs(x-kx), abs(y-ky))
+            if sfBoard(pos, x, y) == "P" and dist < v:
+                px = x
+                py = y
+                v = dist
+    if v < 8 and (square == None or square[0] == px and square[1] == py):
+        return(v)
+    return(0)
+
+def check(pos, square=None, myType=None):
+    if square == None:
+        return(sfSum(pos, check))
+    if (rookXrayAttack(pos, square) and
+      (myType == None or myType == 2 or myType == 4) or
+      queenAttack(pos, square) and
+      (myType == None or myType == 3)):
+        for i in range(4):
+            if i == 0:
+                ix = -1
+            elif i == 1:
+                ix = 1
+            else:
+                ix = 0
+            if i == 2:
+                iy = -1
+            elif i == 3:
+                iy = 1
+            else:
+                iy = 0
+            for d in range(1,8):
+                b = sfBoard(pos, square[0] + d * ix, square[1] + d * iy)
+                if b == 'k':
+                    return(1)
+                if b != "-" and b != "q":
+                    break
+    if (bishopXrayAttack(pos, square) and
+      (myType == None or myType == 1 or myType == 4) or
+      queenAttack(pos, square) and
+      (myType == None or myType == 3)):
+        for i in range(4):
+            ix = (i > 1) * 2 - 1
+            iy = (i % 2 == 0) * 2 -1
+            for d in range(1,8):
+                b = sfBoard(pos, square[0] + d * ix, square[1] + d * iy)
+                if b == "k":
+                    return(1)
+                if b != "-" and b != "q":
+                    break
+    if (knightAttack(pos, square) and 
+      (myType == None or myType == 0 or myType == 4)):
+        if (sfBoard(pos, square[0] + 2, square[1] + 1) == "k" or
+          sfBoard(pos, square[0] + 2, square[1] - 1) == "k" or
+          sfBoard(pos, square[0] + 1, square[1] + 2) == "k" or
+          sfBoard(pos, square[0] + 1, square[1] - 2) == "k" or
+          sfBoard(pos, square[0] - 2, square[1] + 1) == "k" or
+          sfBoard(pos, square[0] - 2, square[1] - 1) == "k" or
+          sfBoard(pos, square[0] - 1, square[1] + 2) == "k" or
+          sfBoard(pos, square[0] - 1, square[1] - 2) == "k"):
+            return(1)
+    return(0) 
+
+def weakSquares(pos, square=None):
+    if square == None:
+        return(sfSum(pos, weakSquares))
+    if attack(pos, square):
+        pos2 = colorflip(pos)
+        myAttack = attack(pos2, (square[0], 7-square[1]))
+        if myAttack >= 2:
+            return(0)
+        if myAttack == 0:
+            return(1)
+        if (kingAttack(pos2, (square[0], 7-square[1])) or
+          queenAttack(pos2, (square[0], 7-square[1]))):
+            return(1)
+    return(0)
+
+def safeCheck(pos, square=None, myType=None):
+    if square == None:
+        return(sfSum(pos, safeCheck, myType))
+    if "PNBRQK".find(sfBoard(pos, square[0], square[1])) >= 0:
+        return(0)
+    if not check(pos, square, myType):
+        return(0)
+    pos2 = colorflip(pos)
+    if myType == 3 and safeCheck(pos, square, 2):
+        return(0)
+    if myType == 1 and safeCheck(pos, square, 3):
+        return(0)
+    if ((not attack(pos2, (square[0], 7-square[1])) or
+      (weakSquares(pos, square) and attack(pos, square) > 1)) and
+      (myType != 3 or not queenAttack(pos2, (square[0], 7-square[1])))):
+        return(1)
+    return(0)
+
+def kingAttackersCount(pos, square=None):
+    if square == None:
+        return(sfSum(pos, kingAttackersCount))
+    if "PNBRQ".find(sfBoard(pos, square[0], square[1])) < 0:
+        return(0)
+    if sfBoard(pos, square[0], square[1]) == "P":
+        v = 0
+        for direc in range(-1, 2, 2):
+            fr = sfBoard(pos, square[0] + direc * 2, square[1]) == "P"
+            if (square[0] + direc >= 0 and square[0] + direc < 7 and
+              kingRing(pos, (square[0]+direc, square[1]-1), True)):
+                if fr:
+                    v = v + 0.5
+                else:
+                    v = v + 1
+        return(v)
+    for x in range(8):
+        for y in range(8):
+            s2 = (x,y)
+            if kingRing(pos, s2):
+                if (knightAttack(pos, s2, square) or
+                  bishopXrayAttack(pos, s2, square) or
+                  rookXrayAttack(pos, s2, square) or
+                  queenAttack(pos, s2, square)):
+                    return(1)
+    return(0)
+
+def kingAttackersWeight(pos, square=None):
+    if square == None:
+        return(sfSum(pos, kingAttackersWeight))
+    myPiece = sfBoard(pos, square[0], square[1])
+    if kingAttackersCount(pos, square):
+        return([0,81,52,44,10]["PNBRQ".find(myPiece)])
+    return(0)
+
+def kingAttacks(pos, square=None):
+    if square == None:
+        return(sfSum(pos, kingAttacks))
+    if "NBRQ".find(sfBoard(pos, square[0], square[1])) < 0:
+        return(0)
+    if kingAttackersCount(pos, square) == 0:
+        return(0)
+    kx = 0
+    ky = 0
+    v = 0 
+    for x in range(8):
+        for y in range(8):
+            if sfBoard(pos, x, y) == "k":
+                kx = x
+                ky = y
+    for x in range(kx-1, kx+2):
+        for y in range(ky-1,ky+2):
+            s2 = (x,y)
+            if x >= 0 and y >= 0 and x <= 7 and y <= 7 and (x != kx or y != ky):
+                v += knightAttack(pos, s2, square)
+                v += bishopXrayAttack(pos, s2, square)
+                v += rookXrayAttack(pos, s2, square)
+                v += queenAttack(pos, s2, square)
+    return(v)
+
+def weakBonus(pos, square=None):
+    if square == None:
+        return(sfSum(pos, weakBonus))
+    if not weakSquares(pos, square):
+        return(0)
+    if not kingRing(pos, square):
+        return(0)
+    return(1)
+
+def unsafeChecks(pos, square=None):
+    if square == None:
+        return(sfSum(pos, unsafeChecks))
+    if check(pos, square, 0) and safeCheck(pos, None, 0) == 0:
+        return(1)
+    if check(pos, square, 1) and safeCheck(pos, None, 1) == 0:
+        return(1)
+    if check(pos, square, 2) and safeCheck(pos, None, 2) == 0:
+        return(1)
+    return(0)
+
+def knightDefender(pos, square=None):
+    if square == None:
+        return(sfSum(pos, knightDefender))
+    if knightAttack(pos, square) and kingAttack(pos, square):
+        return(1)
+    return(0)
+
+def endgameShelter(pos, square=None):
+    w = 0
+    s = 1024
+    tx = None
+    for x in range(8):
+        for y in range(8):
+            if (sfBoard(pos, x, y) == "k" or
+              pos['c'][2] and x == 6 and y == 0 or
+              pos['c'][3] and x == 2 and y == 0):
+                w1 = strengthSquare(pos, (x,y))
+                s1 = stormSquare(pos, (x,y))
+                e1 = stormSquare(pos, (x,y), True)
+                if s1 - w1 < s - w:
+                    w = w1
+                    s = s1
+                    e = e1
+    if square == None:
+        return(e)
+    return(0)
+ 
 def blockersForKing(pos, square=None):
     if square == None:
         return(sfSum(pos, blockersForKing))
@@ -761,6 +1134,97 @@ def blockersForKing(pos, square=None):
         return(1)
     return(0)
 
+def flankAttack(pos, square=None):
+    if square == None:
+        return(sfSum(pos, flankAttack))
+    if square[1] > 4:
+        return(0)
+    for x in range(8):
+        for y in range(8):
+            if sfBoard(pos, x, y) == "k":
+                if x == 0 and square[0] > 2:
+                    return(0)
+                if x < 3 and square[0] > 3:
+                    return(0)
+                if x >=3 and x < 5 and (square[0] < 2 or square[0] > 5):
+                    return(0)
+                if x >= 5 and square[0] < 4:
+                    return(0)
+                if x == 7 and square[0] < 5:
+                    return(0)
+    a = attack(pos, square)
+    if not a:
+        return(0)
+    return((a > 1) + 1)
+
+def flankDefense(pos, square=None):
+    if square == None:
+        return(sfSum(pos, flankDefense))
+    if square[1] > 4:
+        return(0)
+    for x in range(8):
+        for y in range(8):
+            if sfBoard(pos, x, y) == "k":
+                if x == 0 and square[0] > 2:
+                    return(0)
+                if x < 3 and square[0] > 3:
+                    return(0)
+                if x >= 3 and x < 5 and (square[0] < 2 or square[0] > 5):
+                    return(0)
+                if x >= 5 and square[0] < 4:
+                    return(0)
+                if x == 7 and square[0] < 5:
+                    return(0)
+    a = attack(colorflip(pos), (square[0], 7-square[1])) > 0
+    return(a)
+
+def kingDanger(pos):
+    count = kingAttackersCount(pos)
+    weight = kingAttackersWeight(pos)
+    myKingAttacks = kingAttacks(pos)
+    weak = weakBonus(pos)
+    myUnsafeChecks = unsafeChecks(pos)
+    myBlockersForKing = blockersForKing(pos)
+    kingFlankAttack = flankAttack(pos)
+    kingFlankDefense = flankDefense(pos)
+    noQueen = not queenCount(pos)
+    v = count * weight \
+      + 69 * myKingAttacks \
+      + 185 * weak \
+      - 100 * (knightDefender(colorflip(pos)) > 0) \
+      + 148 * myUnsafeChecks \
+      + 98 * myBlockersForKing \
+      - 4 * kingFlankDefense \
+      + ((3 * kingFlankAttack * kingFlankAttack // 8) << 0) \
+      - 873 * noQueen \
+      - ((6 * (shelterStrength(pos) - shelterStorm(pos)) // 8) << 0) \
+      + mobilityMg(pos) - mobilityMg(colorflip(pos)) \
+      + 37 \
+      + 780 * (safeCheck(pos, None, 3) > 0) \
+      + 1080 * (safeCheck(pos, None, 2) > 0) \
+      + 635 * (safeCheck(pos, None, 1) > 0) \
+      + 790 * (safeCheck(pos, None, 0) > 0)
+    if v > 100:
+        return(v)
+    return(0)
+
+def kingMg(pos):
+    v = 0
+    kd = kingDanger(pos)
+    v -= shelterStrength(pos)
+    v += shelterStorm(pos)
+    v += (kd * kd // 4096) << 0
+    v += 8 * flankAttack(pos)
+    v += 17 * pawnlessFlank(pos)
+    return(v)
+
+def kingEg(pos):
+    v = 0
+    v -= 16 * kingPawnDistance(pos)
+    v += endgameShelter(pos)
+    v += 95 * pawnlessFlank(pos)
+    v += (kingDanger(pos) // 16) << 0
+    return(v)
 
 ##### Material #####
 def nonPawnMaterial(pos, square=None):
@@ -783,6 +1247,10 @@ def pieceValueMg(pos, square=None):
     else:
         return(pieceValueBonus(pos, square, True))
 
+def pieceValueEg(pos, square=None):
+    if square == None:
+        return(sfSum(pos, pieceValueEg))
+    return(pieceValueBonus(pos, square, False))
 
 def pieceValueBonus(pos, square=None, mg=True):
     if square == None:
@@ -798,56 +1266,48 @@ def pieceValueBonus(pos, square=None, mg=True):
     else:
         return(0)
 
-
 def psqtMg(pos, square=None):
     if square == None:
         return(sfSum(pos, psqtMg))
-    else:
-        return(psqtBonus(pos, square, True))
+    return(psqtBonus(pos, square, True))
 
-def psqtBonus(pos, square, mg):
+def psqtEg(pos, square=None):
     if square == None:
-        return(sfSum(pos, psqt_bonus, mg))
+        return(sfSum(pos, psqtEg))
+    return(psqtBonus(pos, square, False)) 
+
+def psqtBonus(pos, square=None, mg=True):
+    if square == None:
+        return(sfSum(pos, psqtBonus, mg))
     if mg:
-        bonus = [
-            [[-175,-92,-74,-73],[-77,-41,-27,-15],[-61,-17,6,12],[-35,8,40,49],[-34,13,44,51],[-9,22,58,53],[-67,-27,4,37],[-201,-83,-56,-26]],
+        bonus = [[[-175,-92,-74,-73],[-77,-41,-27,-15],[-61,-17,6,12],[-35,8,40,49],[-34,13,44,51],[-9,22,58,53],[-67,-27,4,37],[-201,-83,-56,-26]],
             [[-53,-5,-8,-23],[-15,8,19,4],[-7,21,-5,17],[-5,11,25,39],[-12,29,22,31],[-16,6,1,11],[-17,-14,5,0],[-48,1,-14,-23]],
             [[-31,-20,-14,-5],[-21,-13,-8,6],[-25,-11,-1,3],[-13,-5,-4,-6],[-27,-15,-4,3],[-22,-2,6,12],[-2,12,16,18],[-17,-19,-1,9]],
             [[3,-5,-5,4],[-3,5,8,12],[-3,6,13,7],[4,5,9,8],[0,14,12,5],[-4,10,6,8],[-5,6,10,8],[-2,-2,1,-2]],
-            [[271,327,271,198],[278,303,234,179],[195,258,169,120],[164,190,138,98],[154,179,105,70],[123,145,81,31],[88,120,65,33],[59,89,45,-1]]
-        ] 
+            [[271,327,271,198],[278,303,234,179],[195,258,169,120],[164,190,138,98],[154,179,105,70],[123,145,81,31],[88,120,65,33],[59,89,45,-1]]] 
+        pbonus = [[0,0,0,0,0,0,0,0],[3,3,10,19,16,19,7,-5],[-9,-15,11,15,32,22,5,-22],[-8,-23,6,20,40,17,4,-12],[13,0,-13,1,11,-2,-13,5],
+             [-5,-12,-7,22,-8,-5,-15,-18],[-7,7,-3,-13,5,-16,10,-8],[0,0,0,0,0,0,0,0]]  
+       
     else:
-        bonus = [
-            [[-96,-65,-49,-21],[-67,-54,-18,8],[-40,-27,-8,29],[-35,-2,13,28],[-45,-16,9,39],[-51,-44,-16,17],[-69,-50,-51,12],[-100,-88,-56,-17]],
+        bonus = [[[-96,-65,-49,-21],[-67,-54,-18,8],[-40,-27,-8,29],[-35,-2,13,28],[-45,-16,9,39],[-51,-44,-16,17],[-69,-50,-51,12],[-100,-88,-56,-17]],
             [[-57,-30,-37,-12],[-37,-13,-17,1],[-16,-1,-2,10],[-20,-6,0,17],[-17,-1,-14,15],[-30,6,4,6],[-31,-20,-1,1],[-46,-42,-37,-24]],
             [[-9,-13,-10,-9],[-12,-9,-1,-2],[6,-8,-2,-6],[-6,1,-9,7],[-5,8,7,-6],[6,1,-7,10],[4,5,20,-5],[18,0,19,13]],
             [[-69,-57,-47,-26],[-55,-31,-22,-4],[-39,-18,-9,3],[-23,-3,13,24],[-29,-6,9,21],[-38,-18,-12,1],[-50,-27,-24,-8],[-75,-52,-43,-36]],
-            [[1,45,85,76],[53,100,133,135],[88,130,169,175],[103,156,172,172],[96,166,199,199],[92,172,184,191],[47,121,116,131],[11,59,73,78]]
-        ]
-    if mg:
-        pbonus = [
-            [0,0,0,0,0,0,0,0],[3,3,10,19,16,19,7,-5],[-9,-15,11,15,32,22,5,-22],[-8,-23,6,20,40,17,4,-12],[13,0,-13,1,11,-2,-13,5],
-            [-5,-12,-7,22,-8,-5,-15,-18],[-7,7,-3,-13,5,-16,10,-8],[0,0,0,0,0,0,0,0]
-        ]
-    else:
-        pbonus = [
-            [0,0,0,0,0,0,0,0],[-10,-6,10,0,14,7,-5,-19],[-10,-10,-10,4,4,3,-6,-4],[6,-2,-8,-4,-13,-12,-10,-9],[9,4,3,-12,-12,-6,13,8],
-            [28,20,21,28,30,7,6,13],[0,-11,12,21,25,19,4,7],[0,0,0,0,0,0,0,0]
-        ]
+            [[1,45,85,76],[53,100,133,135],[88,130,169,175],[103,156,172,172],[96,166,199,199],[92,172,184,191],[47,121,116,131],[11,59,73,78]]]
+        pbonus = [[0,0,0,0,0,0,0,0],[-10,-6,10,0,14,7,-5,-19],[-10,-10,-10,4,4,3,-6,-4],[6,-2,-8,-4,-13,-12,-10,-9],[9,4,3,-12,-12,-6,13,8],
+         [28,20,21,28,30,7,6,13],[0,-11,12,21,25,19,4,7],[0,0,0,0,0,0,0,0]]
     myPiece = sfBoard(pos, square[0], square[1])
-    i = "PNBRQ".find(myPiece)
- 
+    i = "PNBRQK".find(myPiece)
     if i < 0:
         return 0;
     elif i == 0:
          return(pbonus[7 - square[1]][square[0]])
     else:
-        return(bonus[i-1][7 - square[1]][min(square[0], 7 - square[0])])
+        return(bonus[i-1][7 - square[1]] [min( square[0], 7-square[0] )])
 
 
 ##### Mobility #####
 def mobility(pos, square=None):
-    '''ERROR: mobility score is 2 higher than it should be. Don't know why.'''
     if square == None:
         return(sfSum(pos, mobility))
     v = 0
@@ -906,6 +1366,11 @@ def mobilityBonus(pos, square=None, mg=True):
     if i < 0:
         return(0)
     return(bonus[i][mobility(pos, square)])
+
+def mobilityMg(pos, square=None):
+    if square == None:
+        return(sfSum(pos, mobilityMg))
+    return(mobilityBonus(pos, square, True))    
 
 ##### Passed Pawns #####
 def passedSquare(pos, square=None):
@@ -994,91 +1459,110 @@ def passedBlock(pos, square=None):
         return(sfSum(pos, passedBlock))
     if not candidatePassed(pos, square):
         return(0)
-    
-
-##### Material #####
-def nonPawnMaterial(pos, square=None):
-    if square == None:
-        return(sfSum(pos, nonPawnMaterial))
-    myPiece = sfBoard(pos, square[0], square[1])
-    i = "NBRQ".find(myPiece)
-    if i >= 0:
-        return(pieceValueBonus(pos, square, True))
-    return(0)
-
-
-def pieceValueMg(pos, square=None):
-    # if no square is specified, calculates values of pieces for
-    # all squares on board.
-    if square == None:
-        return(sfSum(pos, pieceValueMg))
-    # if square is specified (a length two tuple of (x,y)), 
-    # get the pieceValueBonus of specified square.
-    else:
-        return(pieceValueBonus(pos, square, True))
-
-
-def pieceValueBonus(pos, square=None, mg=True):
-    if square == None:
-        return(sfSum(pos, pieceValueBonus))
-    if mg:
-        a = [128, 781, 825, 1276, 2538]
-    else:
-        a = [213, 854, 915, 1380, 2682]
-    myPiece = sfBoard(pos, square[0], square[1])
-    i = "PNBRQ".find(myPiece)
-    if (i >= 0):
-        return(a[i])
-    else:
+    if rank(pos, square) < 4:
         return(0)
+    if sfBoard(pos, square[0], square[1] - 1) != "-":
+        return(0)
+    r = rank(pos, square) - 1
+    if r > 2:
+        w = 5 * r - 13
+    else:
+        w = 0
+    pos2 = colorflip(pos)
+    defended = 0
+    unsafe = 0
+    wunsafe = 0
+    defended1 = 0
+    unsafe1 = 0
+    for y in range(square[1]-1, -1, -1):
+        if attack(pos, (square[0], y)):
+            defended += 1
+        if attack(pos2, (square[0], 7-y)):
+            unsafe += 1
+        if attack(pos2, (square[0]-1,7-y)):
+            wunsafe += 1
+        if attack(pos2, (square[0]+1,7-y)):
+            wunsafe += 1
+        if y == square[1] - 1:
+            defended1 += defended
+            unsafe1 = unsafe
+    for y in range(square[1]+1, 8):
+        if sfBoard(pos, square[0], y) == "R" or sfBoard(pos, square[0], y) == "Q":
+            defended1 = square[1]
+            defended = square[1]
+        if sfBoard(pos, square[0], y) == "r" or sfBoard(pos, square[0], y) == "q":
+            unsafe1 = square[1]
+            unsafe = square[1]
+            
+    if unsafe == 0 and wunsafe == 0:
+        k = 35
+    elif unsafe == 0:
+        k = 20
+    elif unsafe1 == 0:
+        k = 9
+    else:
+        k = 0
+    return(k * w)
 
-
-def psqtMg(pos, square=None):
+def passedFile(pos, square=None):
     if square == None:
-        return(sfSum(pos, psqtMg))
-    else:
-        return(psqtBonus(pos, square, True))
+        return(sfSum(pos, passedFile))
+    if not candidatePassed(pos, square):
+        return(0)
+    myFile = sfFile(pos, square)
+    return(min(myFile - 1, 8 - myFile))
 
-def psqtBonus(pos, square, mg):
+def passedRank(pos, square=None):
     if square == None:
-        return(sfSum(pos, psqt_bonus, mg))
-    if mg:
-        bonus = [
-            [[-175,-92,-74,-73],[-77,-41,-27,-15],[-61,-17,6,12],[-35,8,40,49],[-34,13,44,51],[-9,22,58,53],[-67,-27,4,37],[-201,-83,-56,-26]],
-            [[-53,-5,-8,-23],[-15,8,19,4],[-7,21,-5,17],[-5,11,25,39],[-12,29,22,31],[-16,6,1,11],[-17,-14,5,0],[-48,1,-14,-23]],
-            [[-31,-20,-14,-5],[-21,-13,-8,6],[-25,-11,-1,3],[-13,-5,-4,-6],[-27,-15,-4,3],[-22,-2,6,12],[-2,12,16,18],[-17,-19,-1,9]],
-            [[3,-5,-5,4],[-3,5,8,12],[-3,6,13,7],[4,5,9,8],[0,14,12,5],[-4,10,6,8],[-5,6,10,8],[-2,-2,1,-2]],
-            [[271,327,271,198],[278,303,234,179],[195,258,169,120],[164,190,138,98],[154,179,105,70],[123,145,81,31],[88,120,65,33],[59,89,45,-1]]
-        ] 
-    else:
-        bonus = [
-            [[-96,-65,-49,-21],[-67,-54,-18,8],[-40,-27,-8,29],[-35,-2,13,28],[-45,-16,9,39],[-51,-44,-16,17],[-69,-50,-51,12],[-100,-88,-56,-17]],
-            [[-57,-30,-37,-12],[-37,-13,-17,1],[-16,-1,-2,10],[-20,-6,0,17],[-17,-1,-14,15],[-30,6,4,6],[-31,-20,-1,1],[-46,-42,-37,-24]],
-            [[-9,-13,-10,-9],[-12,-9,-1,-2],[6,-8,-2,-6],[-6,1,-9,7],[-5,8,7,-6],[6,1,-7,10],[4,5,20,-5],[18,0,19,13]],
-            [[-69,-57,-47,-26],[-55,-31,-22,-4],[-39,-18,-9,3],[-23,-3,13,24],[-29,-6,9,21],[-38,-18,-12,1],[-50,-27,-24,-8],[-75,-52,-43,-36]],
-            [[1,45,85,76],[53,100,133,135],[88,130,169,175],[103,156,172,172],[96,166,199,199],[92,172,184,191],[47,121,116,131],[11,59,73,78]]
-        ]
-    if mg:
-        pbonus = [
-            [0,0,0,0,0,0,0,0],[3,3,10,19,16,19,7,-5],[-9,-15,11,15,32,22,5,-22],[-8,-23,6,20,40,17,4,-12],[13,0,-13,1,11,-2,-13,5],
-            [-5,-12,-7,22,-8,-5,-15,-18],[-7,7,-3,-13,5,-16,10,-8],[0,0,0,0,0,0,0,0]
-        ]
-    else:
-        pbonus = [
-            [0,0,0,0,0,0,0,0],[-10,-6,10,0,14,7,-5,-19],[-10,-10,-10,4,4,3,-6,-4],[6,-2,-8,-4,-13,-12,-10,-9],[9,4,3,-12,-12,-6,13,8],
-            [28,20,21,28,30,7,6,13],[0,-11,12,21,25,19,4,7],[0,0,0,0,0,0,0,0]
-        ]
-    myPiece = sfBoard(pos, square[0], square[1])
-    i = "PNBRQ".find(myPiece)
- 
-    if i < 0:
-        return 0;
-    elif i == 0:
-        return(pbonus[7 - square[1]][square[0]])
-    else:
-        return(bonus[i-1][7 - square[1]][min(square[0], 7 - square[0])])
+        return(sfSum(pos, passedRank))
+    if not candidatePassed(pos, square):
+        return(0)
+    return(rank(pos, square)-1)
+
+def passedMg(pos, square=None):
+    if square == None:
+        return(sfSum(pos, passedMg))
+    if not candidatePassed(pos, square):
+        return(0)
+    v = 0
+    v += [0,10,17,15,62,168,276][passedRank(pos, square)]
+    v += passedBlock(pos, square)
+    if (not passedSquare(pos, (square[0], square[1]-1)) or 
+       sfBoard(pos, square[0], square[1]-1).upper() == "P"):
+        v = (v // 2) << 0
+    v -= 11 * passedFile(pos, square)
+    return(v)
 
 ##### Space #####
+def spaceArea(pos, square=None):
+    if square == None:
+        return(sfSum(pos, spaceArea))
+    v = 0
+    myRank = rank(pos, square)
+    myFile = sfFile(pos, square)
+    if ((myRank >= 2 and myRank <=4 and myFile >= 3 and myFile <=6) and
+      sfBoard(pos, square[0], square[1]) != "P" and
+      sfBoard(pos, square[0] - 1, square[1] - 1) != "p" and
+      sfBoard(pos, square[0] + 1, square[1] - 1) != "p"):
+        v += 1
+        if ((sfBoard(pos, square[0], square[1] - 1) == "P" or
+          sfBoard(pos, square[0], square[1] - 2) == "P" or
+          sfBoard(pos, square[0], square[1] - 3) == "P") and
+          not attack(colorflip(pos), (square[0], 7-square[1]))):
+            v += 1
+    return(v)
+
+def space(pos, square=None):
+    if nonPawnMaterial(pos) + nonPawnMaterial(colorflip(pos)) < 12222:
+        return(0)
+    weight = -1
+    for x in range(8):
+        for y in range(8):
+            if "PNBRQK".find(sfBoard(pos, x, y)) >= 0:
+                weight += 1
+    return((spaceArea(pos, square) * weight * weight//16) << 0)
+
+
 
 ##### Threats #####
 def safePawn(pos, square=None):
@@ -1217,7 +1701,7 @@ def sliderOnQueen(pos, square=None):
     diagonal = queenAttackDiagonal(pos2, (square[0], 7-square[1]))
     if (not diagonal and
       rookXrayAttack(pos, square) and
-      queenAttack(pos2, (square[0], 7-ssquare[1]))):
+      queenAttack(pos2, (square[0], 7-square[1]))):
         return(1)
     return(0)
 
@@ -1295,4 +1779,8 @@ pawnsMgCheck = pawnsMg(pos) - pawnsMg(colorflip(pos)) == -2
 print(pawnsMg(pos), pawnsMg(colorflip(pos)))
 print(phalanx(pos), phalanx(colorflip(pos)))'''
 #print('kingProtector', kingProtector(pos))
-print(kingProximity(pos))
+for i in range(8):
+    for j in range(8):
+        print(pawnsEg(colorflip(pos), (i,j)))
+
+print(pawnsEg(colorflip(pos)))
