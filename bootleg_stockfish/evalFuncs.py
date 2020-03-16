@@ -1,4 +1,3 @@
-from sfGlobal import *
 '''TODO:
 - pieceValueMg
     
@@ -35,8 +34,47 @@ pos = {# chessboard
        # move counts
        'm': [0,4]}
 
+##### Global Functions #####
+def sfBoard(pos, x, y):
+    if x >= 0 and x <=7 and y >= 0 and y <= 7:
+        return(pos['b'][x][y])
+    return('x')
 
-def middleGameEvaluation(pos, noInitiative):
+def colorflip(pos):
+    board = [['-'] * 8 for i in range(8)] 
+    for x in range(8):
+        for y in range(8):
+            board[x][y] = pos['b'][x][7-y]
+            color = board[x][y].upper() == board[x][y]
+            if color:
+                board[x][y] = board[x][y].lower()
+            else:
+                board[x][y] = board[x][y].upper()
+    outPos = {'b':board, 'c':[pos['c'][2], pos['c'][3], pos['c'][0], pos['c'][1]],
+              'w':not pos['w'], 'm':[pos['m'][0], pos['m'][1]]} 
+    if pos['e'] == None:
+        outPos['e'] = None
+    else:
+        outPos['e'] = [pos['e'][0],7-pos['e'][1]]
+    return(outPos)
+
+
+def sfSum(pos, func, *args):
+    outSum = 0
+    for x in range(8):
+        for y in range(8):
+            outSum += func(pos, (x, y), *args)
+    return(outSum)
+##### Main Eval #####
+def mainEvaluation(pos):
+    mg = middleGameEvaluation(pos)
+    eg = endGameEvaluation(pos)
+    p = phase(pos)
+    t = tempo(pos)
+    eg = eg * scaleFactor(pos, eg) / 64
+    return( (((mg * p + (int(eg * (128 - p)) << 0)) // 128) << 0) + t )
+
+def middleGameEvaluation(pos, noInitiative=True):
     v = 0
     v += pieceValueMg(pos) - pieceValueMg(colorflip(pos))
     v += psqtMg(pos) - psqtMg(colorflip(pos))
@@ -52,13 +90,72 @@ def middleGameEvaluation(pos, noInitiative):
         v += initiativeTotalMg(pos, v)
     return(v)
 
-def endGameEvaluation(pos, noInitiative):
+def endGameEvaluation(pos, noInitiative=True):
+    v = 0
     v += pieceValueEg(pos) - pieceValueEg(colorflip(pos))
     v += psqtEg(pos) - psqtEg(colorflip(pos))
     v += imbalanceTotal(pos)
     v += pawnsEg(pos) - pawnsEg(colorflip(pos))
+    v += piecesEg(pos) - piecesEg(colorflip(pos))
+    v += mobilityEg(pos) - mobilityEg(colorflip(pos))
+    v += threatsEg(pos) - threatsEg(colorflip(pos))
+    v += passedEg(pos) - passedEg(colorflip(pos))
+    v += kingEg(pos) - kingEg(colorflip(pos))
+    if not noInitiative:
+        v += initiativeTotalEg(pos, v)
+    return(v)    
 
+def scaleFactor(pos, eg=None):
+    if eg == None:
+        eg = endGameEvaluation(pos)
+    if eg > 0:
+        posW = pos
+        posB = colorflip(pos)
+    else:
+        posW = colorflip(pos)
+        posB = pos
+    sf = 64
+    pcW = pawnCount(posW)
+    pcB = pawnCount(posB)
+    npmW = nonPawnMaterial(posW)
+    npmB = nonPawnMaterial(posB)
+    bishopValueMg = 825
+    bishopValueEg = 915
+    rookValueMg = 1276
+    if pcW == 0 and npmW - npmB <= bishopValueMg:
+        if npmW < rookValueMg:
+            sf = 0
+        elif npmB <= bishopValueMg:
+            sf = 4
+        else:
+            sf = 14
+    if sf == 64:
+        ob = oppositeBishops(pos)
+        if ob and npmW == bishopValueMg and npmB == bishopValueMg:
+            sf = 22
+        else:
+            if ob:
+                sf = min(sf, 36 + 2 * pcW)
+            else:
+                sf = min(sf, 36 * 7 * pcW)
+        rule50 = pos['m'][0]
+        sf = max(0, sf - (((rule50 - 12) // 4) << 0))
+    return(sf)
 
+def phase(pos):
+    midGameLimit = 15258
+    endGameLimit = 3915
+    npm = nonPawnMaterial(pos) + nonPawnMaterial(colorflip(pos))
+    npm = max(endGameLimit, min(npm, midGameLimit))
+    return((((npm - endGameLimit) * 128) // (midGameLimit - endGameLimit)) << 0)
+
+def tempo(pos, square=None):
+    if square != None:
+        return(0)
+    if pos['w']:
+        return(28)
+    else:
+        return(-28)
 ##### Pawns #####
 def pawnsMg(pos, square=None):
     if square == None:
@@ -85,8 +182,10 @@ def pawnsEg(pos, square=None):
         v -= 24
     if doubled(pos, square):
         v -= 56
+    # HACKY FIX WARNING!
+    # Verify with someone who actually knows javascript
     if connected(pos, square):
-        v += connectedBonus(pos,square) * (rank(pos, square) - 3) // 4 << 0
+        v += (connectedBonus(pos,square) * (rank(pos, square) - 3) // 4 << 0) + 1
     v -= 27 * weakUnopposedPawn(pos, square)
     v -= 56 * weakLever(pos, square)
     return(v)
@@ -233,6 +332,25 @@ def piecesMg(pos, square=None):
     v -= 49 * weakQueen(pos, square)
     v -= 7 * kingProtector(pos, square)
     v += 45 * longDiagonalBishop(pos, square)
+    return(v)
+
+def piecesEg(pos, square=None):
+    if square == None:
+        return(sfSum(pos, piecesEg))
+    if "NBRQ".find(sfBoard(pos, square[0], square[1])) < 0:
+        return(0)
+    v = 0
+    v += [0,10,21,42][outpostTotal(pos, square)]
+    v += 3 * minorBehindPawn(pos, square)
+    v -= 7 * bishopPawns(pos, square)
+    v += 6 * rookOnQueenFile(pos, square)
+    v += [0,4,25][rookOnFile(pos, square)]
+    if (pos['c'][0] or pos['c'][1]):
+        v -= trappedRook(pos, square) * 10 * 1
+    else:
+        v -= trappedRook(pos, square) * 10 * 2
+    v -= 15 * weakQueen(pos, square)
+    v -= 8 * kingProtector(pos, square)
     return(v)
 
 def outpostTotal(pos, square=None):
@@ -461,7 +579,7 @@ def pinnedDirection(pos, square=None):
                 break
     if king:
         for d in range(1,8):
-            b = board(pos, square[0] - d * ix, square[1] - d * iy)
+            b = sfBoard(pos, square[0] - d * ix, square[1] - d * iy)
             if (b == "q" or 
              b == "b" and ix * iy != 0 or
              b == "r" and ix * iy == 0):
@@ -791,6 +909,17 @@ def initiativeTotalMg(pos, v=None):
         return(-1 * max( min(initiative(pos)+50, 0), -(abs(v))))
     else:
         return(0 * max( min(initiative(pos)+50, 0), -(abs(v))))
+
+def initiativeTotalEg(pos, v=None):
+    if v == None:
+        v = endGameEvaluation(pos, True)
+    if v > 0:
+        return(1 * max( initiative(pos), -abs(v)))
+    elif v < 0:
+        return(-1 * max( initiative(pos), -abs(v)))
+    else:
+        return(0 * max( initiative(pos), -abs(v)))
+
 
 
 ##### King #####
@@ -1372,6 +1501,11 @@ def mobilityMg(pos, square=None):
         return(sfSum(pos, mobilityMg))
     return(mobilityBonus(pos, square, True))    
 
+def mobilityEg(pos, square=None):
+    if square == None:
+        return(sfSum(pos, mobilityEg))
+    return(mobilityBonus(pos, square, False))
+
 ##### Passed Pawns #####
 def passedSquare(pos, square=None):
     if square == None:
@@ -1533,6 +1667,21 @@ def passedMg(pos, square=None):
     v -= 11 * passedFile(pos, square)
     return(v)
 
+def passedEg(pos, square=None):
+    if square == None:
+        return(sfSum(pos, passedEg))
+    if not candidatePassed(pos, square):
+        return(0)
+    v = 0
+    v += kingProximity(pos, square)
+    v += [0,28,33,41,72,177,260][passedRank(pos, square)]
+    v += passedBlock(pos, square)
+    if (not passedSquare(pos, (square[0], square[1]-1)) or
+      sfBoard(pos, square[0], square[1]-1).upper() == "P"):
+        v = (v//2) << 0
+    v -= 8 * passedFile(pos, square)
+    return(v)
+        
 ##### Space #####
 def spaceArea(pos, square=None):
     if square == None:
@@ -1767,20 +1916,28 @@ def threatsMg(pos):
             v += [0,3,38,38,0,51,0][rookThreat(pos, s)]
     return(v)
 
+def threatsEg(pos):
+    v = 0
+    v += 36 * hanging(pos)
+    if kingThreat(pos) > 0:
+        v += 89
+    v += 39 * pawnPushThreat(pos)
+    v += 94 * threatSafePawn(pos)
+    v += 18 * sliderOnQueen(pos)
+    v += 12 * knightOnQueen(pos)
+    v += 7 * restricted(pos)
+    for x in range(8):
+        for y in range(8):
+            s = (x,y)
+            v += [0,32,41,56,119,161,0][minorThreat(pos, s)]
+            v += [0,44,71,61,38,38,0][rookThreat(pos, s)]
+    return(v)
 
-pieceValueMgCheck = pieceValueMg(pos) - pieceValueMg(colorflip(pos)) == 909
-psqtMgCheck = psqtMg(pos) - psqtMg(colorflip(pos)) ==  -64
-imbalanceCheck = imbalance(pos) - imbalance(colorflip(pos)) == 3223
-bishopPairCheck = bishopPair(pos) - bishopPair(colorflip(pos)) == 0 
-imbalanceTotalCheck = imbalanceTotal(pos) == 201 
-pawnsMgCheck = pawnsMg(pos) - pawnsMg(colorflip(pos)) == -2
-#print(bishopPairCheck)
-'''print(pawnsMgCheck)
-print(pawnsMg(pos), pawnsMg(colorflip(pos)))
-print(phalanx(pos), phalanx(colorflip(pos)))'''
-#print('kingProtector', kingProtector(pos))
-for i in range(8):
-    for j in range(8):
-        print(pawnsEg(colorflip(pos), (i,j)))
+import time
+timeList = []
+for i in range(10):
+    t1 = time.time()
+    mainEvaluation(pos)
+    timeList.append(time.time() - t1)
 
-print(pawnsEg(colorflip(pos)))
+print(sum(timeList)/len(timeList))
